@@ -2,7 +2,7 @@
 # GeneralLink
 
 ## Install
-Download the `custom_components/general-link` directory and copy it to the `custom_components` directory in the HomeAssistant configuration folder
+Download the `custom_components/general_link` directory and copy it to the `custom_components` directory in the HomeAssistant configuration folder
 
 Or you can install the components using [HACS](https://hacs.xyz)
 

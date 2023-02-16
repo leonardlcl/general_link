@@ -3,7 +3,7 @@
 
 ## 安装
 
-下载 `custom_components/general-link` 目录并将其复制到 HomeAssistant 配置文件夹中的 `custom_components` 目录
+下载 `custom_components/general_link` 目录并将其复制到 HomeAssistant 配置文件夹中的 `custom_components` 目录
 
 或者您可以使用 [HACS](https://hacs.xyz) 安装组件
 
