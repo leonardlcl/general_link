@@ -19,7 +19,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN, MQTT_CLIENT_INSTANCE, EVENT_ENTITY_STATE_UPDATE, CACHE_ENTITY_STATE_UPDATE_KEY_DICT, \
-    EVENT_ENTITY_REGISTER
+    EVENT_ENTITY_REGISTER, MANUFACTURER
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -107,7 +107,7 @@ class CustomCover(CoverEntity):
             "identifiers": {(DOMAIN, self.unique_id)},
             # If desired, the name for the device could be different to the entity
             "name": self.name,
-            "manufacturer": "Netmoon",
+            "manufacturer": MANUFACTURER,
         }
 
     @property

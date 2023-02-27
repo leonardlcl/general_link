@@ -2,6 +2,8 @@
 
 DOMAIN = "general_link"
 
+MANUFACTURER = "GeneralLink"
+
 CONF_BROKER = "broker"
 
 CONF_LIGHT_DEVICE_TYPE = "light_device_type"

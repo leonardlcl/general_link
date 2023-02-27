@@ -12,7 +12,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, MQTT_CLIENT_INSTANCE, EVENT_ENTITY_REGISTER
+from .const import DOMAIN, MQTT_CLIENT_INSTANCE, EVENT_ENTITY_REGISTER, MANUFACTURER
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,7 +66,7 @@ class CustomScene(Scene):
             "identifiers": {(DOMAIN, self.unique_id)},
             # If desired, the name for the device could be different to the entity
             "name": self.name,
-            "manufacturer": "Netmoon",
+            "manufacturer": MANUFACTURER,
         }
 
     async def async_activate(self, **kwargs):
