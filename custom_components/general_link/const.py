@@ -26,5 +26,6 @@ PLATFORMS: list[str] = [
     "cover",
     "light",
     "scene",
+    "switch",
     "climate"
 ]

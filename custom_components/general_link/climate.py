@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import logging
-import time
 from abc import ABC
 
 from homeassistant.components.climate import ClimateEntity, HVACMode, ClimateEntityFeature, FAN_LOW, FAN_MEDIUM, \
@@ -12,7 +11,7 @@ from homeassistant.components.climate.const import HVAC_MODE_DRY, HVAC_MODE_AUTO
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import TEMP_CELSIUS, PRECISION_WHOLE
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -91,20 +90,21 @@ class CustomClimate(ClimateEntity, ABC):
 
         self.update_state(config)
 
-        async def async_discover(data: dict):
-            try:
-                self.update_state(data)
-                self.async_write_ha_state()
-            except Exception:
-                raise
-
         """Add a device state change event listener, and execute the specified method when the device state changes. 
         Note: It is necessary to determine whether an event listener has been added here to avoid repeated additions."""
         key = EVENT_ENTITY_STATE_UPDATE.format(self.unique_id)
         if key not in hass.data[CACHE_ENTITY_STATE_UPDATE_KEY_DICT]:
             hass.data[CACHE_ENTITY_STATE_UPDATE_KEY_DICT][key] = async_dispatcher_connect(
-                hass, key, async_discover
+                hass, key, self.async_discover
             )
+
+    @callback
+    def async_discover(self, data: dict) -> None:
+        try:
+            self.update_state(data)
+            self.async_write_ha_state()
+        except Exception:
+            raise
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -203,7 +203,7 @@ class CustomClimate(ClimateEntity, ABC):
         else:
             if self._attr_hvac_mode == HVAC_MODE_OFF:
                 await self.exec_command(19, 1)
-                time.sleep(1)
+                # time.sleep(1)
             if hvac_mode == HVAC_MODE_AUTO:
                 await self.exec_command(21, 0)
             elif hvac_mode == HVAC_MODE_COOL:

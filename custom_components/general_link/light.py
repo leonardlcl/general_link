@@ -7,7 +7,7 @@ from typing import Any
 
 from homeassistant.components.light import LightEntity, ColorMode
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -97,20 +97,21 @@ class CustomLight(LightEntity):
 
         self.update_state(config)
 
-        async def async_discover(data: dict):
-            try:
-                self.update_state(data)
-                self.async_write_ha_state()
-            except Exception:
-                raise
-
         """Add a device state change event listener, and execute the specified method when the device state changes. 
         Note: It is necessary to determine whether an event listener has been added here to avoid repeated additions."""
         key = EVENT_ENTITY_STATE_UPDATE.format(self.unique_id)
         if key not in hass.data[CACHE_ENTITY_STATE_UPDATE_KEY_DICT]:
             hass.data[CACHE_ENTITY_STATE_UPDATE_KEY_DICT][key] = async_dispatcher_connect(
-                hass, key, async_discover
+                hass, key, self.async_discover
             )
+
+    @callback
+    def async_discover(self, data: dict) -> None:
+        try:
+            self.update_state(data)
+            self.async_write_ha_state()
+        except Exception:
+            raise
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -175,6 +176,11 @@ class CustomLight(LightEntity):
 
         if "color_temp" in kwargs:
             """HA color temperature control page is reversed"""
+
+            if not self.on_off:
+                self.on_off = True
+                await self.exec_command(on=1)
+
             kelvin = int(kwargs["color_temp"])
             kelvin_bl = (kelvin - LIGHT_MIN_KELVIN) / (LIGHT_MAX_KELVIN - LIGHT_MIN_KELVIN)
             kelvin = LIGHT_MHT_MAX_KELVIN - round(kelvin_bl * (LIGHT_MHT_MAX_KELVIN - LIGHT_MHT_MIN_KELVIN))
@@ -188,6 +194,11 @@ class CustomLight(LightEntity):
             self._attr_color_mode = ColorMode.COLOR_TEMP
 
         if "brightness" in kwargs:
+
+            if not self.on_off:
+                self.on_off = True
+                await self.exec_command(on=1)
+
             brightness_normalized = kwargs["brightness"] / 255
             level = round(brightness_normalized, 6)
 
@@ -195,6 +206,11 @@ class CustomLight(LightEntity):
             self._attr_brightness = kwargs["brightness"]
 
         if "rgb_color" in kwargs:
+
+            if not self.on_off:
+                self.on_off = True
+                await self.exec_command(on=1)
+
             rgb = kwargs["rgb_color"]
             rgb = (rgb[0] << 16) + (rgb[1] << 8) + rgb[2]
 
