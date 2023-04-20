@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections import OrderedDict
 
 import voluptuous as vol
@@ -41,13 +42,14 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         """Format the connection information reported by mdns"""
         connection = format_connection(discovery_info)
-
         """Realize the change of gateway connection information and trigger HA to reconnect to the gateway"""
         for entry in self._async_current_entries():
             entry_data = entry.data
             if entry_data[CONF_NAME] == connection[CONF_NAME]:
                 if CONF_LIGHT_DEVICE_TYPE in entry_data:
                     connection[CONF_LIGHT_DEVICE_TYPE] = entry_data[CONF_LIGHT_DEVICE_TYPE]
+                    connection["random"] = time.time()
+                _LOGGER.warning("扫描到连接匹配的网关，准备开始更新并连接网关")
                 self.hass.config_entries.async_update_entry(
                     entry,
                     data=connection,

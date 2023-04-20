@@ -3,8 +3,8 @@
 import asyncio
 import json
 import logging
+import time
 
-from homeassistant.components.mqtt import MQTT
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME, EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import HomeAssistant, Event
@@ -12,6 +12,8 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .const import MQTT_CLIENT_INSTANCE, CONF_LIGHT_DEVICE_TYPE, EVENT_ENTITY_REGISTER, MQTT_TOPIC_PREFIX, \
     EVENT_ENTITY_STATE_UPDATE, DEVICE_COUNT_MAX
+from .mqtt import MqttClient
+from .scan import scan_and_get_connection_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,16 +37,11 @@ class Gateway:
         """Lighting Control Type"""
         self.light_device_type = entry.data[CONF_LIGHT_DEVICE_TYPE]
 
-    async def connect(self):
-        """Connect to gateway internal MQTT"""
-
-        self._hass.data[MQTT_CLIENT_INSTANCE] = MQTT(
+        self._hass.data[MQTT_CLIENT_INSTANCE] = MqttClient(
             self._hass,
             self._entry,
             self._entry.data,
         )
-
-        await self._hass.data[MQTT_CLIENT_INSTANCE].async_connect()
 
         async def async_stop_mqtt(_event: Event):
             """Stop MQTT component."""
@@ -52,10 +49,18 @@ class Gateway:
 
         self._hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, async_stop_mqtt)
 
+    async def reconnect(self, entry: ConfigEntry):
+        """Reconnect gateway MQTT"""
+        mqtt_client: MqttClient = self._hass.data[MQTT_CLIENT_INSTANCE]
+        mqtt_client.conf = entry.data
+        await mqtt_client.async_disconnect()
+        mqtt_client.init_client()
+        await mqtt_client.async_connect()
+
     async def disconnect(self):
         """Disconnect gateway MQTT connection"""
 
-        mqtt_client: MQTT = self._hass.data[MQTT_CLIENT_INSTANCE]
+        mqtt_client: MqttClient = self._hass.data[MQTT_CLIENT_INSTANCE]
 
         await mqtt_client.async_disconnect()
 
@@ -221,26 +226,9 @@ class Gateway:
             self._hass, EVENT_ENTITY_REGISTER.format(component), device
         )
 
-    async def reconnect(self, entry: ConfigEntry):
-        """Reconnect gateway MQTT"""
-        mqtt_client: MQTT = self._hass.data[MQTT_CLIENT_INSTANCE]
-        mqtt_client.conf = entry.data
-        await mqtt_client.async_disconnect()
-        mqtt_client.init_client()
-        await mqtt_client.async_connect()
-
-    async def init(self, entry: ConfigEntry):
+    async def init(self, entry: ConfigEntry, is_init: bool):
         """Initialize the gateway business logic, including subscribing to device data, scene data, and basic data,
         and sending data reporting instructions to the gateway"""
-
-        mqtt_connected = self._hass.data[MQTT_CLIENT_INSTANCE].connected
-        _LOGGER.warning(mqtt_connected)
-
-        while not mqtt_connected:
-            await self.reconnect(entry)
-            await asyncio.sleep(1)
-            mqtt_connected = self._hass.data[MQTT_CLIENT_INSTANCE].connected
-            _LOGGER.warning(mqtt_connected)
 
         discovery_topics = [
             # Subscribe to device list
@@ -256,19 +244,49 @@ class Gateway:
             # Subscribe to device property change events
             "p/+/event/3",
         ]
-        await asyncio.gather(
-            *(
-                self._hass.data[MQTT_CLIENT_INSTANCE].async_subscribe(
-                    topic,
-                    self._async_mqtt_subscribe,
-                    0,
-                    "utf-8"
-                )
-                for topic in discovery_topics
-            )
-        )
 
+        try_connect_times = 10
+        await self.reconnect(entry)
+
+        mqtt_connected = self._hass.data[MQTT_CLIENT_INSTANCE].connected
+        while not mqtt_connected:
+            await asyncio.sleep(1)
+            mqtt_connected = self._hass.data[MQTT_CLIENT_INSTANCE].connected
+            _LOGGER.warning("is_init 1 %s mqtt_connected %s", is_init, mqtt_connected)
+            try_connect_times = try_connect_times - 1
+            if try_connect_times <= 0:
+                break
+
+        _LOGGER.warning("is_init 2 %s mqtt_connected %s", is_init, mqtt_connected)
         if mqtt_connected:
+            flag = True
+        else:
+            _LOGGER.warning("repeat scan mdns")
+            flag = False
+            entry_data = entry.data
+            connection = await scan_and_get_connection_info(entry_data[CONF_NAME], 3)
+            if connection is not None:
+                if CONF_LIGHT_DEVICE_TYPE in entry_data:
+                    connection[CONF_LIGHT_DEVICE_TYPE] = entry_data[CONF_LIGHT_DEVICE_TYPE]
+                    connection["random"] = time.time()
+                self._hass.config_entries.async_update_entry(
+                    entry,
+                    data=connection,
+                )
+
+        if flag:
+            _LOGGER.warning("start init data")
+            await asyncio.gather(
+                *(
+                    self._hass.data[MQTT_CLIENT_INSTANCE].async_subscribe(
+                        topic,
+                        self._async_mqtt_subscribe,
+                        0,
+                        "utf-8"
+                    )
+                    for topic in discovery_topics
+                )
+            )
             # publish payload to get device list
             data = {
                 "start": 0,

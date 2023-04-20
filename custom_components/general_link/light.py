@@ -83,8 +83,8 @@ class CustomLight(LightEntity):
         if self.is_group:
             self.room = int(config["room"])
             self.subgroup = int(config["subgroup"])
-            # self._attr_supported_color_modes.add(ColorMode.RGB)
-            # self._attr_color_mode = ColorMode.RGB
+            self._attr_supported_color_modes.add(ColorMode.RGB)
+            self._attr_color_mode = ColorMode.RGB
         else:
             self.sn = config["sn"]
             if ColorMode.RGB in config:

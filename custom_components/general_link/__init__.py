@@ -1,7 +1,6 @@
 """The Detailed MHTZN integration."""
 from __future__ import annotations
 
-import asyncio
 import logging
 
 from homeassistant.config_entries import ConfigEntry
@@ -16,13 +15,13 @@ _LOGGER = logging.getLogger(__name__)
 
 async def _async_config_entry_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """This method is triggered when the entry configuration changes, and the gateway connection is updated"""
-
     hub = hass.data[DOMAIN][entry.unique_id]
+
     """reconnect gateway"""
-    await hub.reconnect(entry)
+    # await hub.reconnect(entry)
     """Initialize gateway information and synchronize child device list to HA"""
     hass.async_create_task(
-        hub.init(entry)
+        hub.init(entry, False)
     )
 
 
@@ -45,14 +44,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Determine whether the current integration has been initialized to avoid repeated installation of platform list"""
     if not hass.data[FLAG_IS_INITIALIZED]:
         hass.data[FLAG_IS_INITIALIZED] = True
-        hass.config_entries.async_setup_platforms(entry, PLATFORMS)
-
-    """Connection gateway"""
-    await hub.connect()
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     """Initialize gateway information and synchronize child device list to HA"""
     hass.async_create_task(
-        hub.init(entry)
+        hub.init(entry, True)
     )
 
     """Add an entry configuration change event listener to trigger the specified method 

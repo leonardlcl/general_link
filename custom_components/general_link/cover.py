@@ -142,9 +142,10 @@ class CustomCover(CoverEntity):
         return self._current_position
 
     def update_state(self, data):
-        position = int(data["travel"] * 100)
-        self._target_position = position
-        self._current_position = self._target_position
+        if "travel" in data:
+            position = int(data["travel"] * 100)
+            self._target_position = position
+            self._current_position = self._target_position
 
     async def async_stop_cover(self, **kwargs: Any) -> None:
         """Open the cover."""

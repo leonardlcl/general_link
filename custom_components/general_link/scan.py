@@ -20,7 +20,7 @@ def on_service_state_change(
     global connection_dict
     if state_change is ServiceStateChange.Added or state_change is ServiceStateChange.Updated:
         discovery_info = zeroconf.get_service_info(service_type, name)
-        _LOGGER.warning("state_change : %s ; data : %s", state_change, discovery_info)
+        # _LOGGER.warning("state_change : %s ; data : %s", state_change, discovery_info)
         if discovery_info is not None:
             discovery_info = info_from_service(discovery_info)
             service_type = service_type[:-1]
@@ -28,12 +28,12 @@ def on_service_state_change(
             connection = format_connection(discovery_info)
             connection_dict[name] = connection
     elif state_change is ServiceStateChange.Removed:
-        _LOGGER.warning("state_change : %s", state_change)
+        # _LOGGER.warning("state_change : %s", state_change)
         service_type = service_type[:-1]
         name = name.replace(f".{service_type}.", "")
         del connection_dict[name]
 
-    _LOGGER.warning("change on_service_state_change : %s", connection_dict)
+    # _LOGGER.warning("change on_service_state_change : %s", connection_dict)
 
 
 async def scan_and_get_connection_dict(timeout):
