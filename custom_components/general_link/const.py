@@ -27,5 +27,6 @@ PLATFORMS: list[str] = [
     "light",
     "scene",
     "switch",
-    "climate"
+    "climate",
+    "media_player"
 ]

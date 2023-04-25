@@ -30,7 +30,7 @@ class Gateway:
         self.light_group_map = {}
         self.room_map = {}
         self.room_list = []
-        self.devTypes = [1, 2, 3, 11]
+        self.devTypes = [1, 2, 3, 5, 11]
 
         self.device_map = {}
 
@@ -108,6 +108,9 @@ class Gateway:
                 elif device_type == 2:
                     """Switch"""
                     await self._add_entity("switch", device)
+                elif device_type == 5:
+                    """MediaPlayer"""
+                    await self._add_entity("media_player", device)
                 if "subgroup" in device:
                     self.device_map[device['sn']] = {
                         "room": device['room'],
@@ -287,6 +290,9 @@ class Gateway:
                     for topic in discovery_topics
                 )
             )
+            # publish payload to get all basic data Room list, light group list, curtain group list
+            await self._async_mqtt_publish("P/0/center/q33", {})
+            await asyncio.sleep(3)
             # publish payload to get device list
             data = {
                 "start": 0,
@@ -294,11 +300,10 @@ class Gateway:
                 "devTypes": self.devTypes,
             }
             await self._async_mqtt_publish("P/0/center/q5", data)
+            await asyncio.sleep(3)
             # publish payload to get scene list
             await self._async_mqtt_publish("P/0/center/q28", {})
             if self.light_device_type == "group":
-                # publish payload to get all basic data Room list, light group list, curtain group list
-                await self._async_mqtt_publish("P/0/center/q33", {})
                 # publish payload to get room and light group relationship
                 await asyncio.sleep(5)
                 await self._async_mqtt_publish("P/0/center/q31", {})
