@@ -139,25 +139,6 @@ class CustomMediaPlayer(MediaPlayerEntity, ABC):
         return "1123"
 
     @property
-    def media_title(self):
-        """Return the title of current playing media."""
-        name = "name"
-        title = "title"
-
-        return f"{name}: {title}"
-
-    @property
-    def media_artist(self):
-        """Return the artist of current playing media (Music track only)."""
-        artists = "纠结伦"
-        return artists
-
-    @property
-    def media_album_name(self):
-        """Return the album of current playing media (Music track only)."""
-        return "默认播放器"
-
-    @property
     def supported_features(self) -> MediaPlayerEntityFeature:
         """Flag media player features that are supported."""
 
