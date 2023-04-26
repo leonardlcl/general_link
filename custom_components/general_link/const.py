@@ -22,6 +22,8 @@ MQTT_TOPIC_PREFIX = DOMAIN
 
 DEVICE_COUNT_MAX = 100
 
+MDNS_SCAN_SERVICE = "_mqtt._tcp.local."
+
 PLATFORMS: list[str] = [
     "cover",
     "light",

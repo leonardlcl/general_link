@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-import time
 from collections import OrderedDict
 
 import voluptuous as vol
@@ -17,10 +16,10 @@ from homeassistant.const import (
     CONF_USERNAME,
 )
 
+from . import MdnsScanner
 from .const import (
     DOMAIN, CONF_BROKER, CONF_LIGHT_DEVICE_TYPE
 )
-from .scan import scan_and_get_connection_dict
 from .util import format_connection
 
 connection_dict = {}
@@ -42,25 +41,25 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         """Format the connection information reported by mdns"""
         connection = format_connection(discovery_info)
-        _LOGGER.warning("这个东西触发的扫描 %s", connection)
+        # _LOGGER.warning("这个东西触发的扫描 %s", connection)
         """Realize the change of gateway connection information and trigger HA to reconnect to the gateway"""
-        for entry in self._async_current_entries():
-            entry_data = entry.data
-            if entry_data[CONF_NAME] == connection[CONF_NAME]:
-                if connection[CONF_BROKER] != entry_data[CONF_BROKER] \
-                        or connection[CONF_PORT] != entry_data[CONF_PORT] \
-                        or connection[CONF_USERNAME] != entry_data[CONF_USERNAME] \
-                        or connection[CONF_PASSWORD] != entry_data[CONF_PASSWORD]:
-                    if CONF_LIGHT_DEVICE_TYPE in entry_data:
-                        connection[CONF_LIGHT_DEVICE_TYPE] = entry_data[CONF_LIGHT_DEVICE_TYPE]
-                        connection["random"] = time.time()
-                    _LOGGER.warning("扫描到连接匹配的网关，配置一改变，准备开始更新")
-                    self.hass.config_entries.async_update_entry(
-                        entry,
-                        data=connection,
-                    )
-                else:
-                    _LOGGER.warning("扫描到连接匹配的网关，但配置没有变化，所以不更新")
+        # for entry in self._async_current_entries():
+        #     entry_data = entry.data
+        #     if entry_data[CONF_NAME] == connection[CONF_NAME]:
+        #         if connection[CONF_BROKER] != entry_data[CONF_BROKER] \
+        #                 or connection[CONF_PORT] != entry_data[CONF_PORT] \
+        #                 or connection[CONF_USERNAME] != entry_data[CONF_USERNAME] \
+        #                 or connection[CONF_PASSWORD] != entry_data[CONF_PASSWORD]:
+        #             if CONF_LIGHT_DEVICE_TYPE in entry_data:
+        #                 connection[CONF_LIGHT_DEVICE_TYPE] = entry_data[CONF_LIGHT_DEVICE_TYPE]
+        #                 connection["random"] = time.time()
+        #             _LOGGER.warning("扫描到连接匹配的网关，配置一改变，准备开始更新")
+        #             self.hass.config_entries.async_update_entry(
+        #                 entry,
+        #                 data=connection,
+        #             )
+        #         else:
+        #             _LOGGER.warning("扫描到连接匹配的网关，但配置没有变化，所以不更新")
 
         """When an available gateway connection is found, the configuration card is displayed"""
         if (not self._async_current_entries()
@@ -132,7 +131,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_abort(reason="select_error")
 
         """Search the LAN's gateway list"""
-        connection_dict = await scan_and_get_connection_dict(3)
+        scanner = MdnsScanner()
+        connection_dict = scanner.scan_all(3)
 
         connection_name_list = []
 

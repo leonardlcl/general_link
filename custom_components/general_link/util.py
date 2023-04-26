@@ -66,7 +66,7 @@ def color_temp_to_rgb(color_temp) -> tuple[int, int, int]:
     return color_rgb
 
 
-def format_connection(discovery_info):
+def format_connection(discovery_info) -> dict:
     """Parse and format mdns data"""
 
     name = get_connection_name(discovery_info)

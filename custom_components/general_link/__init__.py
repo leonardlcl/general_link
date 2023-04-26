@@ -12,7 +12,7 @@ from homeassistant.core import HomeAssistant
 from .Gateway import Gateway
 from .const import PLATFORMS, MQTT_CLIENT_INSTANCE, CONF_LIGHT_DEVICE_TYPE, DOMAIN, FLAG_IS_INITIALIZED, \
     CACHE_ENTITY_STATE_UPDATE_KEY_DICT, CONF_BROKER
-from .scan import scan_and_get_connection_info, sync_scan_and_get_connection_info
+from .mdns import MdnsScanner
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,20 +50,36 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[FLAG_IS_INITIALIZED] = True
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    hub.reconnect_flag = True
+
     """Initialize gateway information and synchronize child device list to HA"""
     hass.async_create_task(
         hub.init(entry, True)
     )
 
     def monitor_connection():
+        scanner = MdnsScanner()
+        time.sleep(30)
         while True:
-            entry_data = entry.data
-            status = connect_mqtt(entry_data[CONF_BROKER], entry_data[CONF_PORT]
-                                  , entry_data[CONF_USERNAME], entry_data[CONF_PASSWORD])
-            if not status:
-                _LOGGER.warning("mqtt 连接不上了，需要重新扫描一下")
-                sync_scan_and_get_connection_info(entry_data[CONF_NAME], 3)
-            time.sleep(20)
+            try:
+                entry_data = entry.data
+                status = connect_mqtt(entry_data[CONF_BROKER], entry_data[CONF_PORT]
+                                      , entry_data[CONF_USERNAME], entry_data[CONF_PASSWORD])
+                if not status:
+                    hub.reconnect_flag = True
+                    connection = scanner.scan_single(entry_data[CONF_NAME], 5)
+                    _LOGGER.warning("mqtt 连接不上了，需要重新扫描一下，得到连接 %s", connection)
+                    if connection is not None:
+                        if CONF_LIGHT_DEVICE_TYPE in entry_data:
+                            connection[CONF_LIGHT_DEVICE_TYPE] = entry_data[CONF_LIGHT_DEVICE_TYPE]
+                            connection["random"] = time.time()
+                        hass.config_entries.async_update_entry(
+                            entry,
+                            data=connection,
+                        )
+                time.sleep(10)
+            except OSError as err:
+                _LOGGER.error("ERROR: %s", err)
 
     monitor_thread = threading.Thread(target=monitor_connection)
     monitor_thread.start()
@@ -86,7 +102,6 @@ def connect_mqtt(broker: str, port: int, username: str, password: str):
     except OSError as err:
         _LOGGER.error("Failed to connect to MQTT server due to exception: %s", err)
         return False
-
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

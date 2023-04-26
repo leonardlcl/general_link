@@ -10,10 +10,10 @@ from homeassistant.const import CONF_NAME, EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import HomeAssistant, Event
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
+from .mdns import MdnsScanner
 from .const import MQTT_CLIENT_INSTANCE, CONF_LIGHT_DEVICE_TYPE, EVENT_ENTITY_REGISTER, MQTT_TOPIC_PREFIX, \
     EVENT_ENTITY_STATE_UPDATE, DEVICE_COUNT_MAX
 from .mqtt import MqttClient
-from .scan import scan_and_get_connection_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,6 +32,8 @@ class Gateway:
         self.room_map = {}
         self.room_list = []
         self.devTypes = [1, 2, 3, 5, 11]
+
+        self.reconnect_flag = True
 
         self.device_map = {}
 
@@ -52,6 +54,7 @@ class Gateway:
 
     async def reconnect(self, entry: ConfigEntry):
         """Reconnect gateway MQTT"""
+        _LOGGER.warning("重新连接 async  reconnect")
         mqtt_client: MqttClient = self._hass.data[MQTT_CLIENT_INSTANCE]
         mqtt_client.conf = entry.data
         await mqtt_client.async_disconnect()
@@ -251,7 +254,13 @@ class Gateway:
         ]
 
         try_connect_times = 10
-        await self.reconnect(entry)
+
+        if self.reconnect_flag:
+            await self.reconnect(entry)
+            self.reconnect_flag = False
+            _LOGGER.warning("重新连接mqtt+++++++++++++++++++++++++++++++++++++++")
+        else:
+            _LOGGER.warning("没有重新连接mqtt--------------------------------------")
 
         mqtt_connected = self._hass.data[MQTT_CLIENT_INSTANCE].connected
         while not mqtt_connected:
@@ -279,7 +288,8 @@ class Gateway:
             _LOGGER.warning("repeat scan mdns")
             flag = False
             entry_data = entry.data
-            connection = await scan_and_get_connection_info(entry_data[CONF_NAME], 3)
+            scanner = MdnsScanner()
+            connection = scanner.scan_single(entry_data[CONF_NAME], 5)
             if connection is not None:
                 if CONF_LIGHT_DEVICE_TYPE in entry_data:
                     connection[CONF_LIGHT_DEVICE_TYPE] = entry_data[CONF_LIGHT_DEVICE_TYPE]
