@@ -25,6 +25,7 @@ class Gateway:
         """Init dummy hub."""
         self._hass = hass
         self._entry = entry
+        self._last_init_time = None
         self._id = entry.data[CONF_NAME]
 
         self.light_group_map = {}
@@ -232,6 +233,7 @@ class Gateway:
     async def init(self, entry: ConfigEntry, is_init: bool):
         """Initialize the gateway business logic, including subscribing to device data, scene data, and basic data,
         and sending data reporting instructions to the gateway"""
+        self._entry = entry
 
         discovery_topics = [
             # Subscribe to device list
@@ -263,6 +265,16 @@ class Gateway:
         _LOGGER.warning("is_init 2 %s mqtt_connected %s", is_init, mqtt_connected)
         if mqtt_connected:
             flag = True
+            now_time = int(time.time())
+            if is_init:
+                self._last_init_time = now_time
+            else:
+                if self._last_init_time is not None:
+                    left_time = now_time - self._last_init_time
+                    if left_time < 20:
+                        return
+                else:
+                    self._last_init_time = now_time
         else:
             _LOGGER.warning("repeat scan mdns")
             flag = False
@@ -279,34 +291,38 @@ class Gateway:
 
         if flag:
             _LOGGER.warning("start init data")
-            await asyncio.gather(
-                *(
-                    self._hass.data[MQTT_CLIENT_INSTANCE].async_subscribe(
-                        topic,
-                        self._async_mqtt_subscribe,
-                        0,
-                        "utf-8"
+
+            try:
+                await asyncio.gather(
+                    *(
+                        self._hass.data[MQTT_CLIENT_INSTANCE].async_subscribe(
+                            topic,
+                            self._async_mqtt_subscribe,
+                            0,
+                            "utf-8"
+                        )
+                        for topic in discovery_topics
                     )
-                    for topic in discovery_topics
                 )
-            )
-            # publish payload to get all basic data Room list, light group list, curtain group list
-            await self._async_mqtt_publish("P/0/center/q33", {})
-            await asyncio.sleep(3)
-            # publish payload to get device list
-            data = {
-                "start": 0,
-                "max": DEVICE_COUNT_MAX,
-                "devTypes": self.devTypes,
-            }
-            await self._async_mqtt_publish("P/0/center/q5", data)
-            await asyncio.sleep(3)
-            # publish payload to get scene list
-            await self._async_mqtt_publish("P/0/center/q28", {})
-            if self.light_device_type == "group":
-                # publish payload to get room and light group relationship
-                await asyncio.sleep(5)
-                await self._async_mqtt_publish("P/0/center/q31", {})
+                # publish payload to get all basic data Room list, light group list, curtain group list
+                await self._async_mqtt_publish("P/0/center/q33", {})
+                await asyncio.sleep(3)
+                # publish payload to get device list
+                data = {
+                    "start": 0,
+                    "max": DEVICE_COUNT_MAX,
+                    "devTypes": self.devTypes,
+                }
+                await self._async_mqtt_publish("P/0/center/q5", data)
+                await asyncio.sleep(3)
+                # publish payload to get scene list
+                await self._async_mqtt_publish("P/0/center/q28", {})
+                if self.light_device_type == "group":
+                    # publish payload to get room and light group relationship
+                    await asyncio.sleep(5)
+                    await self._async_mqtt_publish("P/0/center/q31", {})
+            except OSError as err:
+                _LOGGER.error("出了一些问题: %s", err)
 
     async def _async_mqtt_publish(self, topic: str, data: object):
         query_device_payload = {

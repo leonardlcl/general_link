@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import time
 
 from homeassistant.components.zeroconf import info_from_service
 from zeroconf import IPVersion, ServiceBrowser, ServiceStateChange, Zeroconf
@@ -88,3 +89,34 @@ async def scan_commpn(scan_type: str, timeout: int, name=None):
 
 async def scan_and_get_connection_info(name: str, timeout: int):
     return await scan_commpn(scan_type="info", name=name, timeout=timeout)
+
+
+def sync_scan_commpn(timeout: int, name=None):
+    """scan gateway"""
+    zc = Zeroconf(ip_version=IPVersion.All)
+    zc.start()
+    services = ["_mqtt._tcp.local."]
+    kwargs = {'handlers': [on_service_state_change]}
+    browser = ServiceBrowser(zc, services, **kwargs)  # type: ignore
+
+    connection = None
+    time1 = 1
+    while True:
+        if time1 > timeout:
+            break
+        time.sleep(1)
+        if name in connection_dict:
+            connection = connection_dict[name]
+        time1 = time1 + 1
+
+    if browser is not None:
+        browser.cancel()
+
+    if zc is not None:
+        zc.close()
+
+    return connection
+
+
+def sync_scan_and_get_connection_info(name: str, timeout: int):
+    return sync_scan_commpn(name=name, timeout=timeout)

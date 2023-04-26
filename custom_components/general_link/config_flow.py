@@ -42,18 +42,25 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         """Format the connection information reported by mdns"""
         connection = format_connection(discovery_info)
+        _LOGGER.warning("这个东西触发的扫描 %s", connection)
         """Realize the change of gateway connection information and trigger HA to reconnect to the gateway"""
         for entry in self._async_current_entries():
             entry_data = entry.data
             if entry_data[CONF_NAME] == connection[CONF_NAME]:
-                if CONF_LIGHT_DEVICE_TYPE in entry_data:
-                    connection[CONF_LIGHT_DEVICE_TYPE] = entry_data[CONF_LIGHT_DEVICE_TYPE]
-                    connection["random"] = time.time()
-                _LOGGER.warning("扫描到连接匹配的网关，准备开始更新并连接网关")
-                self.hass.config_entries.async_update_entry(
-                    entry,
-                    data=connection,
-                )
+                if connection[CONF_BROKER] != entry_data[CONF_BROKER] \
+                        or connection[CONF_PORT] != entry_data[CONF_PORT] \
+                        or connection[CONF_USERNAME] != entry_data[CONF_USERNAME] \
+                        or connection[CONF_PASSWORD] != entry_data[CONF_PASSWORD]:
+                    if CONF_LIGHT_DEVICE_TYPE in entry_data:
+                        connection[CONF_LIGHT_DEVICE_TYPE] = entry_data[CONF_LIGHT_DEVICE_TYPE]
+                        connection["random"] = time.time()
+                    _LOGGER.warning("扫描到连接匹配的网关，配置一改变，准备开始更新")
+                    self.hass.config_entries.async_update_entry(
+                        entry,
+                        data=connection,
+                    )
+                else:
+                    _LOGGER.warning("扫描到连接匹配的网关，但配置没有变化，所以不更新")
 
         """When an available gateway connection is found, the configuration card is displayed"""
         if (not self._async_current_entries()
