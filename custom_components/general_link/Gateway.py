@@ -31,7 +31,7 @@ class Gateway:
         self.light_group_map = {}
         self.room_map = {}
         self.room_list = []
-        self.devTypes = [1, 2, 3, 5, 11]
+        self.devTypes = [1, 2, 3, 11]
 
         self.reconnect_flag = True
 

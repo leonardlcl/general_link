@@ -4,16 +4,13 @@ from __future__ import annotations
 import json
 import logging
 from abc import ABC
-from typing import Any
 
 from homeassistant.components.media_player import MediaPlayerEntity, MediaType, MediaPlayerState, \
     MediaPlayerEntityFeature, RepeatMode
-from homeassistant.components.mpd.media_player import PLAYLIST_UPDATE_INTERVAL
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.util import Throttle
 
 from .const import MQTT_CLIENT_INSTANCE, \
     EVENT_ENTITY_REGISTER, EVENT_ENTITY_STATE_UPDATE, CACHE_ENTITY_STATE_UPDATE_KEY_DICT
@@ -55,14 +52,10 @@ class CustomMediaPlayer(MediaPlayerEntity, ABC):
         self.sn = config["sn"]
 
         self._status = MediaPlayerState.PAUSED
-        self._currentsong = None
-        self._playlists = None
-        self._currentplaylist = None
         self._muted = False
         self._volume = False
         self._repeat = RepeatMode.OFF
         self._shuffle = False
-        self._commands = None
 
         self.update_state(config)
 
@@ -134,11 +127,6 @@ class CustomMediaPlayer(MediaPlayerEntity, ABC):
         return self._muted
 
     @property
-    def media_content_id(self):
-        """Return the content ID of current playing media."""
-        return "1123"
-
-    @property
     def supported_features(self) -> MediaPlayerEntityFeature:
         """Flag media player features that are supported."""
 
@@ -150,33 +138,12 @@ class CustomMediaPlayer(MediaPlayerEntity, ABC):
                 | MediaPlayerEntityFeature.PREVIOUS_TRACK
                 | MediaPlayerEntityFeature.PAUSE
                 | MediaPlayerEntityFeature.PLAY
-                | MediaPlayerEntityFeature.PLAY_MEDIA
                 | MediaPlayerEntityFeature.REPEAT_SET
                 | MediaPlayerEntityFeature.SELECT_SOUND_MODE
-                | MediaPlayerEntityFeature.SELECT_SOURCE
                 | MediaPlayerEntityFeature.SHUFFLE_SET
         )
 
         return supported
-
-    @property
-    def source(self):
-        """Name of the current input source."""
-        return self._currentplaylist
-
-    @property
-    def source_list(self):
-        """Return the list of available input sources."""
-        return self._playlists
-
-    async def async_select_source(self, source: str) -> None:
-        """Choose a different available playlist and play it."""
-        await self.async_play_media(MediaType.PLAYLIST, source)
-
-    @Throttle(PLAYLIST_UPDATE_INTERVAL)
-    async def _update_playlists(self, **kwargs: Any) -> None:
-        """Update available MPD playlists."""
-        pass
 
     async def async_set_volume_level(self, volume: float) -> None:
         """Set volume of media player."""
@@ -255,12 +222,6 @@ class CustomMediaPlayer(MediaPlayerEntity, ABC):
             }
             await self.exec_command(data)
         self._muted = mute
-
-    async def async_play_media(
-            self, media_type: MediaType | str, media_id: str, **kwargs: Any
-    ) -> None:
-        """Send the media player the command for playing a playlist."""
-        _LOGGER.warning("async_play_media %s %s %s ", media_type, media_id, kwargs)
 
     @property
     def repeat(self) -> RepeatMode:
