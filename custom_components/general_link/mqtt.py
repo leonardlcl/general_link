@@ -22,7 +22,7 @@ from homeassistant.util import dt as dt_util
 from paho.mqtt import client
 from paho.mqtt.client import MQTTMessage
 
-from custom_components.general_link.const import CONF_BROKER
+from .const import CONF_BROKER
 
 _LOGGER = logging.getLogger(__name__)
 

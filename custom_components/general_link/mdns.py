@@ -4,8 +4,8 @@ from homeassistant.components.zeroconf import info_from_service
 from zeroconf import ServiceBrowser, Zeroconf
 from typing import Dict
 
-from custom_components.general_link.const import MDNS_SCAN_SERVICE
-from custom_components.general_link.util import format_connection
+from .const import MDNS_SCAN_SERVICE
+from .util import format_connection
 
 
 class MdnsScanner:
