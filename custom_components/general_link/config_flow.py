@@ -16,10 +16,10 @@ from homeassistant.const import (
     CONF_USERNAME,
 )
 
-from . import MdnsScanner
 from .const import (
     DOMAIN, CONF_BROKER, CONF_LIGHT_DEVICE_TYPE
 )
+from .scan import scan_and_get_connection_dict
 from .util import format_connection
 
 connection_dict = {}
@@ -131,8 +131,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_abort(reason="select_error")
 
         """Search the LAN's gateway list"""
-        scanner = MdnsScanner()
-        connection_dict = scanner.scan_all(3)
+        connection_dict = await scan_and_get_connection_dict(3)
 
         connection_name_list = []
 
