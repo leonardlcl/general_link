@@ -65,7 +65,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 entry_data = entry.data
                 status = connect_mqtt(entry_data[CONF_BROKER], entry_data[CONF_PORT]
                                       , entry_data[CONF_USERNAME], entry_data[CONF_PASSWORD])
-                if not status:
+                # _LOGGER.warning("status：%s，hub.init_state：%s", status, hub.init_state)
+                if not status or not hub.init_state:
                     hub.reconnect_flag = True
                     connection = scanner.scan_single(entry_data[CONF_NAME], 5)
                     _LOGGER.warning("mqtt 连接不上了，需要重新扫描一下，得到连接 %s", connection)

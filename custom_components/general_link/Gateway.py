@@ -35,6 +35,8 @@ class Gateway:
 
         self.reconnect_flag = True
 
+        self.init_state = False
+
         self.device_map = {}
 
         """Lighting Control Type"""
@@ -301,7 +303,7 @@ class Gateway:
 
         if flag:
             _LOGGER.warning("start init data")
-
+            self.init_state = True
             try:
                 await asyncio.gather(
                     *(
@@ -332,6 +334,7 @@ class Gateway:
                     await asyncio.sleep(5)
                     await self._async_mqtt_publish("P/0/center/q31", {})
             except OSError as err:
+                self.init_state = False
                 _LOGGER.error("出了一些问题: %s", err)
 
     async def _async_mqtt_publish(self, topic: str, data: object):
