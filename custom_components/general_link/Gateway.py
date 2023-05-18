@@ -23,7 +23,7 @@ class Gateway:
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Init dummy hub."""
-        self._hass = hass
+        self.hass = hass
         self._entry = entry
         self._last_init_time = None
         self._id = entry.data[CONF_NAME]
@@ -42,8 +42,8 @@ class Gateway:
         """Lighting Control Type"""
         self.light_device_type = entry.data[CONF_LIGHT_DEVICE_TYPE]
 
-        self._hass.data[MQTT_CLIENT_INSTANCE] = MqttClient(
-            self._hass,
+        self.hass.data[MQTT_CLIENT_INSTANCE] = MqttClient(
+            self.hass,
             self._entry,
             self._entry.data,
         )
@@ -52,12 +52,12 @@ class Gateway:
             """Stop MQTT component."""
             await self.disconnect()
 
-        self._hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, async_stop_mqtt)
+        self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, async_stop_mqtt)
 
     async def reconnect(self, entry: ConfigEntry):
         """Reconnect gateway MQTT"""
         _LOGGER.warning("重新连接 async  reconnect")
-        mqtt_client: MqttClient = self._hass.data[MQTT_CLIENT_INSTANCE]
+        mqtt_client: MqttClient = self.hass.data[MQTT_CLIENT_INSTANCE]
         mqtt_client.conf = entry.data
         await mqtt_client.async_disconnect()
         mqtt_client.init_client()
@@ -66,7 +66,7 @@ class Gateway:
     async def disconnect(self):
         """Disconnect gateway MQTT connection"""
 
-        mqtt_client: MqttClient = self._hass.data[MQTT_CLIENT_INSTANCE]
+        mqtt_client: MqttClient = self.hass.data[MQTT_CLIENT_INSTANCE]
 
         await mqtt_client.async_disconnect()
 
@@ -148,11 +148,11 @@ class Gateway:
                             "on": is_on
                         }
                         async_dispatcher_send(
-                            self._hass, EVENT_ENTITY_STATE_UPDATE.format(f"switch{state['sn']}{relay}"), status
+                            self.hass, EVENT_ENTITY_STATE_UPDATE.format(f"switch{state['sn']}{relay}"), status
                         )
                 else:
                     async_dispatcher_send(
-                        self._hass, EVENT_ENTITY_STATE_UPDATE.format(state["sn"]), state
+                        self.hass, EVENT_ENTITY_STATE_UPDATE.format(state["sn"]), state
                     )
         elif topic.endswith("p33"):
             """Basic data, including room information, light group information, curtain group information"""
@@ -214,7 +214,7 @@ class Gateway:
         if "rgb" in device:
             state["rgb"] = int(device["rgb"])
         async_dispatcher_send(
-            self._hass, EVENT_ENTITY_STATE_UPDATE.format(f"{room}-{subgroup}"), state
+            self.hass, EVENT_ENTITY_STATE_UPDATE.format(f"{room}-{subgroup}"), state
         )
 
     async def _sync_group_status(self):
@@ -232,7 +232,7 @@ class Gateway:
     async def _add_entity(self, component: str, device: dict):
         """Add child device information"""
         async_dispatcher_send(
-            self._hass, EVENT_ENTITY_REGISTER.format(component), device
+            self.hass, EVENT_ENTITY_REGISTER.format(component), device
         )
 
     async def init(self, entry: ConfigEntry, is_init: bool):
@@ -255,7 +255,7 @@ class Gateway:
             "p/+/event/3",
         ]
 
-        try_connect_times = 10
+        try_connect_times = 3
 
         if self.reconnect_flag:
             await self.reconnect(entry)
@@ -264,10 +264,10 @@ class Gateway:
         else:
             _LOGGER.warning("没有重新连接mqtt--------------------------------------")
 
-        mqtt_connected = self._hass.data[MQTT_CLIENT_INSTANCE].connected
+        mqtt_connected = self.hass.data[MQTT_CLIENT_INSTANCE].connected
         while not mqtt_connected:
             await asyncio.sleep(1)
-            mqtt_connected = self._hass.data[MQTT_CLIENT_INSTANCE].connected
+            mqtt_connected = self.hass.data[MQTT_CLIENT_INSTANCE].connected
             _LOGGER.warning("is_init 1 %s mqtt_connected %s", is_init, mqtt_connected)
             try_connect_times = try_connect_times - 1
             if try_connect_times <= 0:
@@ -296,7 +296,7 @@ class Gateway:
                 if CONF_LIGHT_DEVICE_TYPE in entry_data:
                     connection[CONF_LIGHT_DEVICE_TYPE] = entry_data[CONF_LIGHT_DEVICE_TYPE]
                     connection["random"] = time.time()
-                self._hass.config_entries.async_update_entry(
+                self.hass.config_entries.async_update_entry(
                     entry,
                     data=connection,
                 )
@@ -307,7 +307,7 @@ class Gateway:
             try:
                 await asyncio.gather(
                     *(
-                        self._hass.data[MQTT_CLIENT_INSTANCE].async_subscribe(
+                        self.hass.data[MQTT_CLIENT_INSTANCE].async_subscribe(
                             topic,
                             self._async_mqtt_subscribe,
                             0,
@@ -343,7 +343,7 @@ class Gateway:
             "rspTo": MQTT_TOPIC_PREFIX,
             "data": data
         }
-        await self._hass.data[MQTT_CLIENT_INSTANCE].async_publish(
+        await self.hass.data[MQTT_CLIENT_INSTANCE].async_publish(
             topic,
             json.dumps(query_device_payload),
             0,

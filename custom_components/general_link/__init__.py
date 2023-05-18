@@ -63,10 +63,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         while True:
             try:
                 entry_data = entry.data
-                status = connect_mqtt(entry_data[CONF_BROKER], entry_data[CONF_PORT]
-                                      , entry_data[CONF_USERNAME], entry_data[CONF_PASSWORD])
+                # status = connect_mqtt(entry_data[CONF_BROKER], entry_data[CONF_PORT]
+                #                      , entry_data[CONF_USERNAME], entry_data[CONF_PASSWORD])
                 # _LOGGER.warning("status：%s，hub.init_state：%s", status, hub.init_state)
-                if not status or not hub.init_state:
+                mqtt_connected = hub.hass.data[MQTT_CLIENT_INSTANCE].connected
+                if not mqtt_connected or not hub.init_state:
                     hub.reconnect_flag = True
                     connection = scanner.scan_single(entry_data[CONF_NAME], 5)
                     _LOGGER.warning("mqtt 连接不上了，需要重新扫描一下，得到连接 %s", connection)
@@ -98,7 +99,7 @@ def connect_mqtt(broker: str, port: int, username: str, password: str):
         client = client.Client("test-connect")
         client.username_pw_set(username, password=password)
         client.connect(broker, port)
-        client.disconnect()
+        client.ping.disconnect()
         return True
     except OSError as err:
         _LOGGER.error("Failed to connect to MQTT server due to exception: %s", err)
