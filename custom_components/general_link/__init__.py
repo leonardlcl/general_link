@@ -1,6 +1,7 @@
 """The Detailed MHTZN integration."""
 from __future__ import annotations
 
+import asyncio
 import logging
 import threading
 import time
@@ -68,7 +69,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         start_time = current_time
 
         # 定义间隔时间（10分钟）
-        interval = 10 * 60
+        interval = 5 * 60
 
         while True:
             try:
@@ -92,9 +93,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 elif mqtt_connected and hub.init_state:
                     current_time = time.time()
                     if current_time - start_time >= interval:
-                        _LOGGER.warning("间隔时间开始执行同步任务 %s", interval)
                         # 执行你的操作
-                        hub.sync_group_status(False)
+                        hass.async_create_task(
+                            hub.sync_group_status(False)
+                        )
                         # 更新起始时间戳
                         start_time = current_time
                 time.sleep(10)
