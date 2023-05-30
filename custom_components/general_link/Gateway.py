@@ -140,7 +140,11 @@ class Gateway:
         elif topic.endswith("event/3"):
             """Device state data"""
             stats_list = payload["data"]
-            await self._sync_group_status()
+
+            string_array = ["sn", "workingTime", "powerSavings"]
+
+            flag = False
+
             for state in stats_list:
                 if "relays" in state:
                     for relay, is_on in enumerate(state["relays"]):
@@ -154,6 +158,17 @@ class Gateway:
                     async_dispatcher_send(
                         self.hass, EVENT_ENTITY_STATE_UPDATE.format(state["sn"]), state
                     )
+
+                if "workingTime" in state or "powerSavings" in state:
+                    for key in state.keys():
+                        if key not in string_array:
+                            flag = True
+                else:
+                    flag = True
+
+            if flag:
+                await self.sync_group_status(False)
+
         elif topic.endswith("p33"):
             """Basic data, including room information, light group information, curtain group information"""
             for room in payload["data"]["rooms"]:
@@ -165,43 +180,40 @@ class Gateway:
             self.room_list = []
             for room in payload["data"]:
                 room_id = room["room"]
-                room_name = "默认房间"
-                if room_id == 0:
-                    room_name = "全屋"
-                elif room_id in self.room_map:
-                    room_instance = self.room_map[room_id]
-                    room_name = room_instance["name"]
-
                 self.room_list.append(room_id)
-                for light_group_id in room["lights"]:
-                    device_name = "默认灯组"
-                    if light_group_id == 0:
-                        device_name = "所有灯"
-                    elif light_group_id in self.light_group_map:
-                        light_group = self.light_group_map[light_group_id]
-                        device_name = light_group["name"]
-
-                    group = {
-                        "unique_id": f"{room_id}-{light_group_id}",
-                        "room": room_id,
-                        "subgroup": light_group_id,
-                        "is_group": True,
-                        "name": f"{room_name}-{device_name}",
-                    }
-                    await self._add_entity("light", group)
-            await self._sync_group_status()
-
+            await self.sync_group_status(True)
         elif topic.endswith("p51"):
+            seq = payload["seq"]
             for roomObj in payload["data"]:
                 if "lights" in roomObj:
                     room_id = roomObj["id"]
                     lights = roomObj["lights"]
+                    room_name = roomObj["name"]
                     light_group_id = 0
-                    await self._event_trigger(room_id, light_group_id, lights)
+                    light_group_name = "所有灯"
+                    await self._init_or_update_light_group(seq, room_id, room_name, light_group_id,
+                                                           light_group_name, lights)
                     if "subgroups" in lights:
                         for subgroupObj in lights["subgroups"]:
                             light_group_id = int(subgroupObj["id"])
-                            await self._event_trigger(room_id, light_group_id, subgroupObj)
+                            light_group_name = subgroupObj["name"]
+                            await self._init_or_update_light_group(seq, room_id, room_name, light_group_id,
+                                                                   light_group_name, subgroupObj)
+
+    async def _init_or_update_light_group(self, seq: int, room_id: int, room_name: str, light_group_id: int,
+                                          light_group_name: str, light_group: dict):
+        if seq == 1:
+            group = {
+                "unique_id": f"{room_id}-{light_group_id}",
+                "room": room_id,
+                "subgroup": light_group_id,
+                "is_group": True,
+                "name": f"{room_name}-{light_group_name}",
+            }
+            group = dict(light_group, **group)
+            await self._add_entity("light", group)
+        else:
+            await self._event_trigger(room_id, light_group_id, light_group)
 
     async def _event_trigger(self, room: int, subgroup: int, device: dict):
         state = {}
@@ -217,7 +229,7 @@ class Gateway:
             self.hass, EVENT_ENTITY_STATE_UPDATE.format(f"{room}-{subgroup}"), state
         )
 
-    async def _sync_group_status(self):
+    async def sync_group_status(self, is_init: bool):
         data = []
         for room in self.room_list:
             data.append({
@@ -226,8 +238,10 @@ class Gateway:
                     "subgroups": []
                 }
             })
-
-        await self._async_mqtt_publish("P/0/center/q51", data)
+        if is_init:
+            await self._async_mqtt_publish("P/0/center/q51", data, 1)
+        else:
+            await self._async_mqtt_publish("P/0/center/q51", data, 2)
 
     async def _add_entity(self, component: str, device: dict):
         """Add child device information"""
@@ -337,9 +351,9 @@ class Gateway:
                 self.init_state = False
                 _LOGGER.error("出了一些问题: %s", err)
 
-    async def _async_mqtt_publish(self, topic: str, data: object):
+    async def _async_mqtt_publish(self, topic: str, data: object, seq=2):
         query_device_payload = {
-            "seq": 1,
+            "seq": seq,
             "rspTo": MQTT_TOPIC_PREFIX,
             "data": data
         }

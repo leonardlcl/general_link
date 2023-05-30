@@ -6,7 +6,7 @@ import threading
 import time
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_NAME, CONF_PORT, CONF_USERNAME, CONF_PASSWORD
+from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 
 from .Gateway import Gateway
@@ -60,6 +60,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     def monitor_connection():
         scanner = MdnsScanner()
         time.sleep(30)
+
+        # 获取当前时间戳
+        current_time = time.time()
+
+        # 设置初始时间戳
+        start_time = current_time
+
+        # 定义间隔时间（10分钟）
+        interval = 10 * 60
+
         while True:
             try:
                 entry_data = entry.data
@@ -79,6 +89,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                             entry,
                             data=connection,
                         )
+                elif mqtt_connected and hub.init_state:
+                    current_time = time.time()
+                    if current_time - start_time >= interval:
+                        _LOGGER.warning("间隔时间开始执行同步任务 %s", interval)
+                        # 执行你的操作
+                        hub.sync_group_status(False)
+                        # 更新起始时间戳
+                        start_time = current_time
                 time.sleep(10)
             except OSError as err:
                 _LOGGER.error("ERROR: %s", err)
@@ -99,7 +117,7 @@ def connect_mqtt(broker: str, port: int, username: str, password: str):
         client = client.Client("test-connect")
         client.username_pw_set(username, password=password)
         client.connect(broker, port)
-        client.ping.disconnect()
+        client.disconnect()
         return True
     except OSError as err:
         _LOGGER.error("Failed to connect to MQTT server due to exception: %s", err)
