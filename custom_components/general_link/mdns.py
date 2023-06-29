@@ -33,6 +33,7 @@ class MdnsScanner:
         zeroconf = Zeroconf()
         browser = ServiceBrowser(zeroconf, MDNS_SCAN_SERVICE, self)
         time.sleep(timeout)
+        browser.cancel()
         zeroconf.close()
         return self.services
 

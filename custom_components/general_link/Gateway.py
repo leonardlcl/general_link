@@ -39,6 +39,8 @@ class Gateway:
 
         self.device_map = {}
 
+        self.sns = []
+
         """Lighting Control Type"""
         self.light_device_type = entry.data[CONF_LIGHT_DEVICE_TYPE]
 
@@ -87,7 +89,7 @@ class Gateway:
             return
 
         if topic.endswith("p5"):
-
+            seq = payload["seq"]
             start = payload["data"]["start"]
             count = payload["data"]["count"]
             total = payload["data"]["total"]
@@ -113,7 +115,10 @@ class Gateway:
                     await self._add_entity("climate", device)
                 elif device_type == 2:
                     """Switch"""
-                    await self._add_entity("switch", device)
+                    if "relays" in device and "relaysNames" in device and "relaysNum" in device:
+                        await self._add_entity("switch", device)
+                    else:
+                        self.sns.append(device['sn'])
                 elif device_type == 5:
                     """MediaPlayer"""
                     await self._add_entity("media_player", device)
@@ -122,14 +127,22 @@ class Gateway:
                         "room": device['room'],
                         "subgroup": device['subgroup']
                     }
-
-            if start + count < total:
-                data = {
-                    "start": start + count,
-                    "max": DEVICE_COUNT_MAX,
-                    "devTypes": self.devTypes,
-                }
-                await self._async_mqtt_publish("P/0/center/q5", data)
+            if seq == 1:
+                if start + count < total:
+                    data = {
+                        "start": start + count,
+                        "max": DEVICE_COUNT_MAX,
+                        "devTypes": self.devTypes,
+                    }
+                    await self._async_mqtt_publish("P/0/center/q5", data, seq)
+            elif seq == 2:
+                if start + count < total:
+                    data = {
+                        "start": start + count,
+                        "max": DEVICE_COUNT_MAX,
+                        "sns": self.sns,
+                    }
+                    await self._async_mqtt_publish("P/0/center/q5", data, seq)
 
         elif topic.endswith("p28"):
             """Scene List data"""
@@ -339,7 +352,7 @@ class Gateway:
                     "max": DEVICE_COUNT_MAX,
                     "devTypes": self.devTypes,
                 }
-                await self._async_mqtt_publish("P/0/center/q5", data)
+                await self._async_mqtt_publish("P/0/center/q5", data, 1)
                 await asyncio.sleep(3)
                 # publish payload to get scene list
                 await self._async_mqtt_publish("P/0/center/q28", {})
@@ -347,6 +360,14 @@ class Gateway:
                     # publish payload to get room and light group relationship
                     await asyncio.sleep(5)
                     await self._async_mqtt_publish("P/0/center/q31", {})
+                await asyncio.sleep(15)
+                if self.sns:
+                    data = {
+                        "start": 0,
+                        "max": DEVICE_COUNT_MAX,
+                        "sns": self.sns,
+                    }
+                    await self._async_mqtt_publish("P/0/center/q5", data, 2)
             except OSError as err:
                 self.init_state = False
                 _LOGGER.error("出了一些问题: %s", err)
