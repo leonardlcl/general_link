@@ -8,7 +8,7 @@ from typing import Any, Iterable, Callable
 from homeassistant.components.mqtt import MQTT_DISCONNECTED, PublishPayloadType, ReceiveMessage, CONF_KEEPALIVE, \
     MQTT_CONNECTED
 from homeassistant.components.mqtt.client import _raise_on_error, TIMEOUT_ACK, SubscribePayloadType, Subscription, \
-    _matcher_for_topic, _raise_on_errors
+    _matcher_for_topic
 from homeassistant.components.mqtt.models import AsyncMessageCallbackType, MessageCallbackType
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PORT, CONF_USERNAME, CONF_PASSWORD
@@ -25,6 +25,19 @@ from paho.mqtt.client import MQTTMessage
 from .const import CONF_BROKER
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _raise_on_errors(result_codes: Iterable[int | None]) -> None:
+    """Raise error if error result."""
+    # pylint: disable-next=import-outside-toplevel
+    import paho.mqtt.client as mqtt
+
+    if messages := [
+        mqtt.error_string(result_code)
+        for result_code in result_codes
+        if result_code != 0
+    ]:
+        raise HomeAssistantError(f"Error talking to MQTT: {', '.join(messages)}")
 
 
 class MqttClient:

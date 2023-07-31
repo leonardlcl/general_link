@@ -182,6 +182,25 @@ class Gateway:
             if flag:
                 await self.sync_group_status(False)
 
+        elif topic.endswith("event/5"):
+            group_list = payload["data"]
+            for group in group_list:
+                if 'a7' in group and 'a8' in group and 'a9' in group:
+                    device_type = group['a7']
+                    room_id = group['a8']
+                    group_id = group['a9']
+                    data = {}
+                    if 'a10' in group:
+                        data['on'] = group['a10']
+                    if 'a11' in group:
+                        data['level'] = group['a11']
+                    if 'a12' in group:
+                        data['kelvin'] = group['a12']
+                    if 'a13' in group and group['a13'] != 0:
+                        data['rgb'] = group['a13']
+                    if device_type == 1 and data:
+                        await self._init_or_update_light_group(2, room_id, '', group_id, '', data)
+
         elif topic.endswith("p33"):
             """Basic data, including room information, light group information, curtain group information"""
             for room in payload["data"]["rooms"]:
@@ -280,6 +299,7 @@ class Gateway:
             f"{MQTT_TOPIC_PREFIX}/center/p51",
             # Subscribe to device property change events
             "p/+/event/3",
+            "p/+/event/5",
         ]
 
         try_connect_times = 3
