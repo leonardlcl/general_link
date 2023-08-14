@@ -334,19 +334,20 @@ class Gateway:
                 else:
                     self._last_init_time = now_time
         else:
-            _LOGGER.warning("repeat scan mdns")
+            # _LOGGER.warning("repeat scan mdns")
+            _LOGGER.warning("未连接，直接退出，等待监控程序检测连接")
             flag = False
-            entry_data = entry.data
-            scanner = MdnsScanner()
-            connection = scanner.scan_single(entry_data[CONF_NAME], 5)
-            if connection is not None:
-                if CONF_LIGHT_DEVICE_TYPE in entry_data:
-                    connection[CONF_LIGHT_DEVICE_TYPE] = entry_data[CONF_LIGHT_DEVICE_TYPE]
-                    connection["random"] = time.time()
-                self.hass.config_entries.async_update_entry(
-                    entry,
-                    data=connection,
-                )
+            # entry_data = entry.data
+            # scanner = MdnsScanner()
+            # connection = scanner.scan_single(entry_data[CONF_NAME], 5)
+            # if connection is not None:
+            #     if CONF_LIGHT_DEVICE_TYPE in entry_data:
+            #         connection[CONF_LIGHT_DEVICE_TYPE] = entry_data[CONF_LIGHT_DEVICE_TYPE]
+            #         connection["random"] = time.time()
+            #     self.hass.config_entries.async_update_entry(
+            #         entry,
+            #         data=connection,
+            #     )
 
         if flag:
             _LOGGER.warning("start init data")

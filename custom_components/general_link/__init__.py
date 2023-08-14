@@ -16,10 +16,14 @@ from .mdns import MdnsScanner
 
 _LOGGER = logging.getLogger(__name__)
 
+monitor_exec_flag = True
+
+global_thread_id = 1
+
 
 async def _async_config_entry_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """This method is triggered when the entry configuration changes, and the gateway connection is updated"""
-    hub = hass.data[DOMAIN][entry.unique_id]
+    hub = hass.data[DOMAIN][entry.entry_id]
 
     """reconnect gateway"""
     # await hub.reconnect(entry)
@@ -30,11 +34,11 @@ async def _async_config_entry_updated(hass: HomeAssistant, entry: ConfigEntry) -
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    global monitor_exec_flag, global_thread_id
     """Set up from a config entry."""
-
     hub = Gateway(hass, entry)
 
-    hass.data.setdefault(DOMAIN, {})[entry.unique_id] = hub
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = hub
 
     """Set a flag to record whether the current integration has been initialized"""
     if FLAG_IS_INITIALIZED not in hass.data:
@@ -49,6 +53,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not hass.data[FLAG_IS_INITIALIZED]:
         hass.data[FLAG_IS_INITIALIZED] = True
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    else:
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     hub.reconnect_flag = True
 
@@ -56,6 +62,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.async_create_task(
         hub.init(entry, True)
     )
+
+    monitor_exec_flag = True
 
     def monitor_connection():
         scanner = MdnsScanner()
@@ -70,8 +78,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # 定义间隔时间（10分钟）
         interval = 5 * 60
 
-        while True:
+        thread_id = global_thread_id
+
+        while monitor_exec_flag and thread_id == global_thread_id:
             try:
+                # _LOGGER.warning("线程ID %s 全局ID %s", thread_id, global_thread_id)
                 entry_data = entry.data
                 # status = connect_mqtt(entry_data[CONF_BROKER], entry_data[CONF_PORT]
                 #                      , entry_data[CONF_USERNAME], entry_data[CONF_PASSWORD])
@@ -109,6 +120,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     when the configuration changes"""
     entry.add_update_listener(_async_config_entry_updated)
 
+    # entry.async_on_unload(entry.add_update_listener(update_listener))
+
     return True
 
 
@@ -126,10 +139,22 @@ def connect_mqtt(broker: str, port: int, username: str, password: str):
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    global monitor_exec_flag, global_thread_id
     """This method is triggered when the entry is unload"""
 
-    hub = hass.data[DOMAIN].pop(entry.unique_id)
+    await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+    hub = hass.data[DOMAIN].pop(entry.entry_id)
     """Perform a gateway disconnect operation"""
     await hub.disconnect()
 
+    monitor_exec_flag = False
+
+    global_thread_id = global_thread_id + 1
+
     return True
+
+
+# async def update_listener(hass: HomeAssistant, config_entry: ConfigEntry) -> None:
+#     """Handle options update."""
+#     await hass.config_entries.async_reload(config_entry.entry_id)
