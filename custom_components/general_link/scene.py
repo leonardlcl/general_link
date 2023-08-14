@@ -33,9 +33,11 @@ async def async_setup_entry(
         except Exception:
             raise
 
-    async_dispatcher_connect(
+    unsub = async_dispatcher_connect(
         hass, EVENT_ENTITY_REGISTER.format(COMPONENT), async_discover
     )
+
+    config_entry.async_on_unload(unsub)
 
 
 class CustomScene(Scene):
