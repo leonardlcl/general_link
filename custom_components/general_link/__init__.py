@@ -148,6 +148,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Perform a gateway disconnect operation"""
     await hub.disconnect()
 
+    hass.data[CACHE_ENTITY_STATE_UPDATE_KEY_DICT] = {}
+
     monitor_exec_flag = False
 
     global_thread_id = global_thread_id + 1

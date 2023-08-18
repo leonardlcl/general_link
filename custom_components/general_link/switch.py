@@ -82,14 +82,12 @@ class CustomSwitch(SwitchEntity, ABC):
         """Add a device state change event listener, and execute the specified method when the device state changes. 
         Note: It is necessary to determine whether an event listener has been added here to avoid repeated additions."""
         key = EVENT_ENTITY_STATE_UPDATE.format(self.unique_id)
-        # if key not in hass.data[CACHE_ENTITY_STATE_UPDATE_KEY_DICT]:
-        #     hass.data[CACHE_ENTITY_STATE_UPDATE_KEY_DICT][key] = async_dispatcher_connect(
-        #         hass, key, self.async_discover
-        #     )
-        unsub = async_dispatcher_connect(
-            hass, key, self.async_discover
-        )
-        config_entry.async_on_unload(unsub)
+        if key not in hass.data[CACHE_ENTITY_STATE_UPDATE_KEY_DICT]:
+            unsub = async_dispatcher_connect(
+                hass, key, self.async_discover
+            )
+            hass.data[CACHE_ENTITY_STATE_UPDATE_KEY_DICT][key] = unsub
+            config_entry.async_on_unload(unsub)
 
     @callback
     def async_discover(self, data: dict) -> None:
