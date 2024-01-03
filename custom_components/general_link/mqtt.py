@@ -75,7 +75,9 @@ class MqttClient:
     async def async_connect(self):
         """Connect to the host. Does not process messages yet."""
         # pylint: disable-next=import-outside-toplevel
-
+        self._username = self.conf[CONF_USERNAME]
+        self._password = self.conf[CONF_PASSWORD]
+        self._client.username_pw_set(self._username, password=self._password)
         result: int | None = None
         try:
             result = await self.hass.async_add_executor_job(
