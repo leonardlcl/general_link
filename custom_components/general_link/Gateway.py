@@ -72,6 +72,39 @@ class Gateway:
 
         await mqtt_client.async_disconnect()
 
+    async def report_q5_init(self, device_list):
+        for device in device_list:
+            device_type = device["devType"]
+            device["unique_id"] = f"{device['sn']}"
+
+            state = int(device["state"])
+            if state == 0:
+                continue
+            if device_type == 3:
+                """Curtain"""
+                await self._add_entity("cover", device)
+            elif device_type == 1 and self.light_device_type == "single":
+                """Light"""
+                device["is_group"] = False
+                await self._add_entity("light", device)
+            elif device_type == 11:
+                """Climate"""
+                await self._add_entity("climate", device)
+            elif device_type == 2:
+                """Switch"""
+                if "relays" in device and "relaysNames" in device and "relaysNum" in device:
+                    await self._add_entity("switch", device)
+                else:
+                    self.sns.append(device['sn'])
+            elif device_type == 5:
+                """MediaPlayer"""
+                await self._add_entity("media_player", device)
+            if "subgroup" in device:
+                self.device_map[device['sn']] = {
+                    "room": device['room'],
+                    "subgroup": device['subgroup']
+                }
+
     async def _async_mqtt_subscribe(self, msg):
         """Process received MQTT messages"""
 
@@ -96,38 +129,9 @@ class Gateway:
 
             """Device List data"""
             device_list = payload["data"]["list"]
-            for device in device_list:
-                device_type = device["devType"]
-                device["unique_id"] = f"{device['sn']}"
 
-                state = int(device["state"])
-                if state == 0:
-                    continue
-                if device_type == 3:
-                    """Curtain"""
-                    await self._add_entity("cover", device)
-                elif device_type == 1 and self.light_device_type == "single":
-                    """Light"""
-                    device["is_group"] = False
-                    await self._add_entity("light", device)
-                elif device_type == 11:
-                    """Climate"""
-                    await self._add_entity("climate", device)
-                elif device_type == 2:
-                    """Switch"""
-                    if "relays" in device and "relaysNames" in device and "relaysNum" in device:
-                        await self._add_entity("switch", device)
-                    else:
-                        self.sns.append(device['sn'])
-                elif device_type == 5:
-                    """MediaPlayer"""
-                    await self._add_entity("media_player", device)
-                if "subgroup" in device:
-                    self.device_map[device['sn']] = {
-                        "room": device['room'],
-                        "subgroup": device['subgroup']
-                    }
             if seq == 1:
+                await self.report_q5_init(device_list)
                 if start + count < total:
                     data = {
                         "start": start + count,
@@ -136,6 +140,7 @@ class Gateway:
                     }
                     await self._async_mqtt_publish("P/0/center/q5", data, seq)
             elif seq == 2:
+                await self.report_q5_init(device_list)
                 if start + count < total:
                     data = {
                         "start": start + count,
@@ -143,6 +148,9 @@ class Gateway:
                         "sns": self.sns,
                     }
                     await self._async_mqtt_publish("P/0/center/q5", data, seq)
+            elif seq == 3:
+                for device in device_list:
+                    await self._exec_event_3(device)
 
         elif topic.endswith("p28"):
             """Scene List data"""
@@ -158,19 +166,12 @@ class Gateway:
 
             flag = False
 
+            sns = []
+
             for state in stats_list:
-                if "relays" in state:
-                    for relay, is_on in enumerate(state["relays"]):
-                        status = {
-                            "on": is_on
-                        }
-                        async_dispatcher_send(
-                            self.hass, EVENT_ENTITY_STATE_UPDATE.format(f"switch{state['sn']}{relay}"), status
-                        )
-                else:
-                    async_dispatcher_send(
-                        self.hass, EVENT_ENTITY_STATE_UPDATE.format(state["sn"]), state
-                    )
+                await self._exec_event_3(state)
+
+                sns.append(state["sn"])
 
                 if "workingTime" in state or "powerSavings" in state:
                     for key in state.keys():
@@ -178,6 +179,14 @@ class Gateway:
                             flag = True
                 else:
                     flag = True
+
+            if sns:
+                data = {
+                    "start": 0,
+                    "max": DEVICE_COUNT_MAX,
+                    "sns": sns,
+                }
+                await self._async_mqtt_publish("P/0/center/q5", data, 3)
 
             if flag:
                 await self.sync_group_status(False)
@@ -231,6 +240,20 @@ class Gateway:
                             light_group_name = subgroupObj["name"]
                             await self._init_or_update_light_group(seq, room_id, room_name, light_group_id,
                                                                    light_group_name, subgroupObj)
+
+    async def _exec_event_3(self, data):
+        if "relays" in data:
+            for relay, is_on in enumerate(data["relays"]):
+                status = {
+                    "on": is_on
+                }
+                async_dispatcher_send(
+                    self.hass, EVENT_ENTITY_STATE_UPDATE.format(f"switch{data['sn']}{relay}"), status
+                )
+        else:
+            async_dispatcher_send(
+                self.hass, EVENT_ENTITY_STATE_UPDATE.format(data["sn"]), data
+            )
 
     async def _init_or_update_light_group(self, seq: int, room_id: int, room_name: str, light_group_id: int,
                                           light_group_name: str, light_group: dict):
