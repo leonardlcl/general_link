@@ -31,7 +31,7 @@ class Gateway:
         self.light_group_map = {}
         self.room_map = {}
         self.room_list = []
-        self.devTypes = [1, 2, 3, 11]
+        self.devTypes = [1, 2, 3, 9, 11]
 
         self.reconnect_flag = True
 
@@ -90,6 +90,12 @@ class Gateway:
             elif device_type == 11:
                 """Climate"""
                 await self._add_entity("climate", device)
+            elif device_type == 9:
+                """Constant Temperature Control Panel"""
+                a110 = int(device["a110"])
+                if a110 == 2 :
+                   device["name"] = device["name"]+"水机"
+                   await self._add_entity("climate", device)
             elif device_type == 2:
                 """Switch"""
                 if "relays" in device and "relaysNames" in device and "relaysNum" in device:
