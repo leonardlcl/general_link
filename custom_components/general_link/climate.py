@@ -54,7 +54,9 @@ class CustomClimate(ClimateEntity, ABC):
 
     supported_features = ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.FAN_MODE
 
-    _attr_fan_modes = [FAN_AUTO, FAN_LOW, FAN_MEDIUM, FAN_MIDDLE, FAN_HIGH, FAN_TOP]
+    #_attr_fan_modes = [FAN_AUTO, FAN_LOW, FAN_MEDIUM, FAN_MIDDLE, FAN_HIGH, FAN_TOP]
+
+    _attr_fan_modes = [FAN_AUTO, FAN_LOW, FAN_MEDIUM, FAN_HIGH]
 
     _attr_hvac_modes = [HVAC_MODE_OFF, HVAC_MODE_COOL, HVAC_MODE_HEAT, HVAC_MODE_FAN_ONLY, HVAC_MODE_DRY,
                         HVAC_MODE_AUTO]
@@ -83,6 +85,7 @@ class CustomClimate(ClimateEntity, ABC):
         self.sn = config["sn"]
 
         self._attr_name = config["name"]
+
 
         self._attr_device_class = COMPONENT
 
@@ -157,6 +160,10 @@ class CustomClimate(ClimateEntity, ABC):
         if "a19" in data:
             curr_temp = float(data["a19"])
             self._attr_current_temperature = curr_temp
+        
+        if "a20" in data:
+            curr_hum = float(data["a20"])*100
+            self._attr_current_humidity = curr_hum
 
         if "a67" in data:
             fan_level = int(data["a67"])
@@ -164,14 +171,14 @@ class CustomClimate(ClimateEntity, ABC):
                 self._attr_fan_mode = FAN_AUTO
             elif fan_level == 1:
                 self._attr_fan_mode = FAN_LOW
-            elif fan_level == 2:
-                self._attr_fan_mode = FAN_MEDIUM
             elif fan_level == 3:
-                self._attr_fan_mode = FAN_MIDDLE
-            elif fan_level == 4:
-                self._attr_fan_mode = FAN_HIGH
+                self._attr_fan_mode = FAN_MEDIUM
+            #elif fan_level == 3:
+                #self._attr_fan_mode = FAN_MIDDLE
             elif fan_level == 5:
-                self._attr_fan_mode = FAN_TOP
+                self._attr_fan_mode = FAN_HIGH
+            #elif fan_level == 5:
+                #self._attr_fan_mode = FAN_TOP
 
     async def async_set_temperature(self, **kwargs) -> None:
         # _LOGGER.warning("set_temperature : %s", kwargs)
@@ -188,13 +195,13 @@ class CustomClimate(ClimateEntity, ABC):
         elif fan_mode == FAN_LOW:
             fan_level = 1
         elif fan_mode == FAN_MEDIUM:
-            fan_level = 2
-        elif fan_mode == FAN_MIDDLE:
             fan_level = 3
+        #elif fan_mode == FAN_MIDDLE:
+            #fan_level = 3
         elif fan_mode == FAN_HIGH:
-            fan_level = 4
-        elif fan_mode == FAN_TOP:
             fan_level = 5
+        #elif fan_mode == FAN_TOP:
+            #fan_level = 5
 
         await self.exec_command(22, fan_level)
         self._attr_fan_mode = fan_mode
