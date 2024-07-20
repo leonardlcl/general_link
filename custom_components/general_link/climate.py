@@ -34,7 +34,23 @@ async def async_setup_entry(
 
     async def async_discover(config_payload):
         try:
-            async_add_entities([CustomClimate(hass, config_payload, config_entry)])
+            if "a110" in config_payload:
+                a110 = int(config_payload["a110"])
+                if a110 == 2:
+                 # config_tmp = config_payload
+                  #config_tmp["name"] = config_payload["name"] + "_水机"
+                  async_add_entities([CustomClimateW(hass, config_payload, config_entry)])
+            else:
+                async_add_entities([CustomClimate(hass, config_payload, config_entry)])
+
+            if "a111" in config_payload:
+                a111 = int(config_payload["a111"])
+                if a111 == 1:
+                   #config_tmp = config_payload
+                  # config_tmp["name"] = config_payload["name"] + "_地暖"
+                   #config_tmp["unique_id"] = config_payload["unique_id"] + "H"
+                   async_add_entities([CustomClimateH(hass, config_payload, config_entry)])
+
         except Exception:
             raise
 
@@ -52,7 +68,7 @@ class CustomClimate(ClimateEntity, ABC):
 
     device_class = COMPONENT
 
-    supported_features = ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.FAN_MODE
+    _attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.FAN_MODE
 
     #_attr_fan_modes = [FAN_AUTO, FAN_LOW, FAN_MEDIUM, FAN_MIDDLE, FAN_HIGH, FAN_TOP]
 
@@ -85,8 +101,7 @@ class CustomClimate(ClimateEntity, ABC):
         self.sn = config["sn"]
 
         self._attr_name = config["name"]
-
-
+        
         self._attr_device_class = COMPONENT
 
         self.hass = hass
@@ -117,14 +132,14 @@ class CustomClimate(ClimateEntity, ABC):
     def device_info(self) -> DeviceInfo:
         """Information about this entity/device."""
         return {
-            "identifiers": {(DOMAIN, self.unique_id)},
+            "identifiers": {(DOMAIN, self.sn)},
             # If desired, the name for the device could be different to the entity
-            "name": self.name,
+            "name": self._attr_name,
             "manufacturer": MANUFACTURER,
         }
 
     def update_state(self, data):
-        # _LOGGER.warning("update_state : %s", data)
+        _LOGGER.warning("update_state : %s", data)
 
         if "a64" in data:
             on_off = int(data["a64"])
@@ -247,3 +262,322 @@ class CustomClimate(ClimateEntity, ABC):
             0,
             False
         )
+
+class CustomClimateH(ClimateEntity, ABC):
+    """Custom entity class to handle business logic related to climates"""
+
+    should_poll = False
+
+    device_class = COMPONENT
+
+    supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
+
+    #_attr_fan_modes = [FAN_AUTO, FAN_LOW, FAN_MEDIUM, FAN_MIDDLE, FAN_HIGH, FAN_TOP]
+
+    #_attr_fan_modes = [FAN_AUTO, FAN_LOW, FAN_MEDIUM, FAN_HIGH]
+
+    _attr_hvac_modes = [HVAC_MODE_OFF,  HVAC_MODE_AUTO]
+
+    _attr_temperature_unit = TEMP_CELSIUS
+
+    _attr_max_temp = 32
+
+    _attr_min_temp = 18
+
+    _attr_target_temperature_step = PRECISION_WHOLE
+
+    _attr_hvac_mode = HVAC_MODE_AUTO
+
+    hvac_mode_cache = HVAC_MODE_AUTO
+
+    on_off_cache = 1
+
+    #_attr_fan_mode = FAN_AUTO
+
+    def __init__(self, hass: HomeAssistant, config: dict, config_entry: ConfigEntry) -> None:
+        self._attr_unique_id = config["unique_id"]+"H"
+
+        self._attr_entity_id = config["unique_id"]+"H"
+
+        self.sn = config["sn"]
+
+        self._attr_name = config["name"]+"_地暖"
+
+        self.dname = config["name"]
+
+        self._attr_device_class = COMPONENT
+
+        self.hass = hass
+
+        self.config_entry = config_entry
+
+        self.a109 = config["a109"]
+
+        self.update_state(config)
+
+        """Add a device state change event listener, and execute the specified method when the device state changes. 
+        Note: It is necessary to determine whether an event listener has been added here to avoid repeated additions."""
+        key = EVENT_ENTITY_STATE_UPDATE.format(self.unique_id)
+        if key not in hass.data[CACHE_ENTITY_STATE_UPDATE_KEY_DICT]:
+            unsub = async_dispatcher_connect(
+                hass, key, self.async_discover
+            )
+            hass.data[CACHE_ENTITY_STATE_UPDATE_KEY_DICT][key] = unsub
+            config_entry.async_on_unload(unsub)
+
+    @callback
+    def async_discover(self, data: dict) -> None:
+        try:
+            self.update_state(data)
+            self.async_write_ha_state()
+        except Exception:
+            raise
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Information about this entity/device."""
+        return {
+            "identifiers": {(DOMAIN, self.sn)},
+            # If desired, the name for the device could be different to the entity
+            "name": self.dname,
+            "manufacturer": MANUFACTURER,
+        }
+
+    def update_state(self, data):
+        _LOGGER.warning("update_stateh : %s", data)
+
+        if "a113" in data:
+            on_off = int(data["a113"])
+            self.on_off_cache = int(data["a113"])
+            if on_off == 0:
+                self._attr_hvac_mode = HVAC_MODE_OFF
+            else:
+                self._attr_hvac_mode = HVAC_MODE_AUTO
+                self.hvac_mode_cache = HVAC_MODE_AUTO
+
+        if "a114" in data:
+            target_temp = float(data["a114"])
+            self._attr_target_temperature = target_temp
+
+        if "a109" in data:
+            curr_a109 = int(data["a109"])
+            self._attr_a109 = curr_a109
+
+        if "a19" in data:
+            curr_temp = float(data["a19"])
+            self._attr_current_temperature = curr_temp
+        
+        if "a20" in data:
+            curr_hum = float(data["a20"])*100
+            self._attr_current_humidity = curr_hum
+
+    async def async_set_temperature(self, **kwargs) -> None:
+        # _LOGGER.warning("set_temperature : %s", kwargs)
+        if "temperature" in kwargs:
+            temperature = float(kwargs["temperature"])
+            if self._attr_a109 != 2:
+               await self.exec_command(32, 2)
+               self._attr_a109 = 2
+            await self.exec_command(34, temperature)
+            self._attr_target_temperature = temperature
+
+    async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
+        # _LOGGER.warning("set_hvac_mode : %s", hvac_mode)
+        if self._attr_a109 != 2:
+            await self.exec_command(32, 2)
+            self._attr_a109 = 2
+        if hvac_mode == HVAC_MODE_OFF:
+            await self.exec_command(33, 0)
+        else:
+            if self._attr_hvac_mode == HVAC_MODE_AUTO:
+                await self.exec_command(33, 1)
+                # time.sleep(1)
+            if hvac_mode == HVAC_MODE_AUTO:
+                await self.exec_command(33, 1)
+        self._attr_hvac_mode = hvac_mode
+        self.hvac_mode_cache = HVAC_MODE_AUTO
+        self.async_write_ha_state()
+
+    async def exec_command(self, i: int, p):
+        """Execute MQTT commands"""
+        if i == 33:
+            m = "a113"
+        elif i == 32:
+            m = "a109"
+        else:
+            m = "a114"
+        message = {
+            "seq": 1,
+            "data": {
+                "sn": self.sn,
+                "i": i,
+                "p":
+                    {
+                    m : p
+                }
+            }
+        }
+
+        await self.hass.data[MQTT_CLIENT_INSTANCE].async_publish(
+            "P/0/center/q74",
+            json.dumps(message),
+            0,
+            False
+        )
+
+class CustomClimateW(CustomClimate):
+
+    def __init__(self, hass: HomeAssistant, config: dict, config_entry: ConfigEntry) -> None:
+        super().__init__(hass, config , config_entry)
+
+        self._attr_a109 = config["a109"]
+
+    def update_state(self, data):
+        #_LOGGER.warning("update_statesj : %s", data)
+        if "a64" in data:
+            on_off = int(data["a64"])
+            self.on_off_cache = int(data["a64"])
+            if on_off == 0:
+                self._attr_hvac_mode = HVAC_MODE_OFF
+
+        if self.on_off_cache == 1:
+            if "a66" in data:
+                mode = int(data["a66"])
+                if mode == 0:
+                    self._attr_hvac_mode = HVAC_MODE_AUTO
+                    self.hvac_mode_cache = HVAC_MODE_AUTO
+                elif mode == 1:
+                    self._attr_hvac_mode = HVAC_MODE_COOL
+                    self.hvac_mode_cache = HVAC_MODE_COOL
+                elif mode == 2:
+                    self._attr_hvac_mode = HVAC_MODE_HEAT
+                    self.hvac_mode_cache = HVAC_MODE_HEAT
+                elif mode == 3:
+                    self._attr_hvac_mode = HVAC_MODE_FAN_ONLY
+                    self.hvac_mode_cache = HVAC_MODE_FAN_ONLY
+                elif mode == 4:
+                    self._attr_hvac_mode = HVAC_MODE_DRY
+                    self.hvac_mode_cache = HVAC_MODE_DRY
+            else:
+                self._attr_hvac_mode = self.hvac_mode_cache
+
+        if "a65" in data:
+            target_temp = float(data["a65"])
+            self._attr_target_temperature = target_temp
+
+        if "a19" in data:
+            curr_temp = float(data["a19"])
+            self._attr_current_temperature = curr_temp
+        
+        if "a20" in data:
+            curr_hum = float(data["a20"])*100
+            self._attr_current_humidity = curr_hum
+
+        if "a67" in data:
+            fan_level = int(data["a67"])
+            if fan_level == 0:
+                self._attr_fan_mode = FAN_AUTO
+            elif fan_level == 1:
+                self._attr_fan_mode = FAN_LOW
+            elif fan_level == 3:
+                self._attr_fan_mode = FAN_MEDIUM
+            #elif fan_level == 3:
+                #self._attr_fan_mode = FAN_MIDDLE
+            elif fan_level == 5:
+                self._attr_fan_mode = FAN_HIGH
+            #elif fan_level == 5:
+                #self._attr_fan_mode = FAN_TOP
+
+        if "a109" in data:
+             curr_a109 = int(data["a109"])
+             self._attr_a109 = curr_a109
+
+    async def async_set_temperature(self, **kwargs) -> None:
+         # _LOGGER.warning("set_temperature : %s", kwargs)
+         if "temperature" in kwargs:
+             temperature = float(kwargs["temperature"])
+             if self._attr_a109 != 1:
+                 await self.exec_command(32, 1)
+                 self._attr_a109 = 1
+             await self.exec_command(20, temperature)
+             self._attr_target_temperature = temperature
+
+    async def async_set_fan_mode(self, fan_mode: str) -> None:
+         # _LOGGER.warning("set_fan_mode : %s", fan_mode)
+         fan_level = 0
+         if fan_mode == FAN_AUTO:
+             fan_level = 0
+         elif fan_mode == FAN_LOW:
+             fan_level = 1
+         elif fan_mode == FAN_MEDIUM:
+             fan_level = 3
+         # elif fan_mode == FAN_MIDDLE:
+         # fan_level = 3
+         elif fan_mode == FAN_HIGH:
+             fan_level = 5
+         # elif fan_mode == FAN_TOP:
+         # fan_level = 5
+         if self._attr_a109 != 1:
+            await self.exec_command(32, 1)
+            self._attr_a109 = 1
+         await self.exec_command(22, fan_level)
+         self._attr_fan_mode = fan_mode
+         self.async_write_ha_state()
+
+    async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
+         # _LOGGER.warning("set_hvac_mode : %s", hvac_mode)
+         if self._attr_a109 != 1:
+            await self.exec_command(32, 1)
+            self._attr_a109 = 1
+         if hvac_mode == HVAC_MODE_OFF:
+             await self.exec_command(19, 0)
+         else:
+             if self._attr_hvac_mode == HVAC_MODE_OFF:
+                 await self.exec_command(19, 1)
+                 # time.sleep(1)
+             if hvac_mode == HVAC_MODE_AUTO:
+                 await self.exec_command(21, 0)
+             elif hvac_mode == HVAC_MODE_COOL:
+                 await self.exec_command(21, 1)
+             elif hvac_mode == HVAC_MODE_HEAT:
+                 await self.exec_command(21, 2)
+             elif hvac_mode == HVAC_MODE_FAN_ONLY:
+                 await self.exec_command(21, 3)
+             elif hvac_mode == HVAC_MODE_DRY:
+                 await self.exec_command(21, 4)
+
+         self._attr_hvac_mode = hvac_mode
+         self.hvac_mode_cache = HVAC_MODE_HEAT
+         self.async_write_ha_state()
+
+
+    async def exec_command(self, i: int, v):
+         """Execute MQTT commands"""
+         message = {
+             "seq": 1,
+             "data": {
+                 "sn": self.sn,
+                 "i": i,
+                 "v": v
+             }
+         }
+         if i == 32:
+           m = "a109"
+           message = {
+             "seq": 1,
+             "data": {
+                 "sn": self.sn,
+                 "i": i,
+                 "p":
+                     {
+                         m: v
+                     }
+             }
+           }
+
+         await self.hass.data[MQTT_CLIENT_INSTANCE].async_publish(
+             "P/0/center/q74",
+             json.dumps(message),
+             0,
+             False
+         )
