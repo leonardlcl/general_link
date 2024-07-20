@@ -93,9 +93,13 @@ class Gateway:
             elif device_type == 9:
                 """Constant Temperature Control Panel"""
                 a110 = int(device["a110"])
-                if a110 == 2 :
-                   device["name"] = device["name"]+"水机"
+                a111 = int(device["a111"])
+                a112 = int(device["a112"])
+                if a110 == 2 or a111 == 1 :
+                   #device["name"] = device["name"]+"水机"
                    await self._add_entity("climate", device)
+                if a112 == 1 :
+                   await self._add_entity("fan", device)
             elif device_type == 2:
                 """Switch"""
                 if "relays" in device and "relaysNames" in device and "relaysNum" in device:
@@ -255,6 +259,22 @@ class Gateway:
                 }
                 async_dispatcher_send(
                     self.hass, EVENT_ENTITY_STATE_UPDATE.format(f"switch{data['sn']}{relay}"), status
+                )
+        #恒温多实体触发
+        elif "devType" in data:
+            if data["devType"] == 9:
+                 async_dispatcher_send(
+                   self.hass, EVENT_ENTITY_STATE_UPDATE.format(data["sn"]), data
+                 )
+                 async_dispatcher_send(
+                    self.hass, EVENT_ENTITY_STATE_UPDATE.format(data["sn"]+"H"), data
+                 )
+                 async_dispatcher_send(
+                    self.hass, EVENT_ENTITY_STATE_UPDATE.format(data["sn"]+"F"), data
+                 )
+            else:
+                async_dispatcher_send(
+                    self.hass, EVENT_ENTITY_STATE_UPDATE.format(data["sn"]), data
                 )
         else:
             async_dispatcher_send(
