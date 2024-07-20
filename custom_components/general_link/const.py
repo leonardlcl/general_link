@@ -30,5 +30,6 @@ PLATFORMS: list[str] = [
     "scene",
     "switch",
     "climate",
-    "media_player"
+    "media_player",
+    "fan"
 ]
