@@ -40,6 +40,7 @@ async def async_setup_entry(
                         relaysName = f"按键{relay+1}"
                     config_payload["unique_id"] = f"switch{sn}{relay}"
                     config_payload["relay"] = relay
+                    config_payload["dname"] = name
                     config_payload["name"] = f"{name}-{relaysName}"
                     config_payload["on"] = state
                     async_add_entities([CustomSwitch(hass, config_payload, config_entry)])
@@ -64,6 +65,8 @@ class CustomSwitch(SwitchEntity, ABC):
         self._attr_unique_id = config["unique_id"]
 
         self._attr_name = config["name"]
+
+        self.dname = config["dname"]
 
         self._state = True
 
@@ -101,9 +104,9 @@ class CustomSwitch(SwitchEntity, ABC):
     def device_info(self) -> DeviceInfo:
         """Information about this entity/device."""
         return {
-            "identifiers": {(DOMAIN, self.unique_id)},
+            "identifiers": {(DOMAIN, self.sn)},
             # If desired, the name for the device could be different to the entity
-            "name": self.name,
+            "name": self.dname,
             "manufacturer": MANUFACTURER,
         }
 
