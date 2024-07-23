@@ -64,11 +64,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     monitor_exec_flag = True
-    #def u_entry(entry: ConfigEntry,data:any):
-   #    return hass.config_entries.async_update_entry(entry,data)
-    def update_config_entry(entry, data):
-         hass.add_job(hass.config_entries.async_update_entry, entry, data=data)
+
+    def update_config_entry(entry: ConfigEntry, data_dict: dict):
+        hass.add_job(_update_config_entry,entry,data_dict)
     
+    
+    async def _update_config_entry(entry: ConfigEntry, new_data: dict) -> None:
+        await hass.config_entries.async_update_entry(entry, data=new_data)
+
+    def entry_reload(entry: ConfigEntry) -> None:
+        _LOGGER.warning('reload GE integration...')
+        hass.add_job(hass.config_entries.async_reload,entry.entry_id)
+
     def monitor_connection():
         scanner = MdnsScanner()
 
@@ -89,13 +96,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         while monitor_exec_flag and thread_id == global_thread_id:
             try:
-                _LOGGER.warning("线程ID %s 全局ID %s", thread_id, global_thread_id)
+                #_LOGGER.warning("线程ID %s 全局ID %s", thread_id, global_thread_id)
                 entry_data = entry.data
                 # status = connect_mqtt(entry_data[CONF_BROKER], entry_data[CONF_PORT]
                 #                      , entry_data[CONF_USERNAME], entry_data[CONF_PASSWORD])
                 #_LOGGER.warning("status：%s，hub.init_state：%s", entry.data, hub.init_state)
                 mqtt_connected = hub.hass.data[MQTT_CLIENT_INSTANCE].connected
-                _LOGGER.warning("mqtt  %s", mqtt_connected)
+                #_LOGGER.warning("mqtt  %s", mqtt_connected)
                 if not mqtt_connected or not hub.init_state:
                     hub.reconnect_flag = True
                     connection = scanner.scan_single(entry_data[CONF_NAME], 5)
@@ -104,13 +111,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         if CONF_LIGHT_DEVICE_TYPE in entry_data:
                             connection[CONF_LIGHT_DEVICE_TYPE] = entry_data[CONF_LIGHT_DEVICE_TYPE]
                             connection["random"] = time.time()
-                     #   hass.loop.call_soon(
-                    #    hass.add_job, u_entry
                         update_config_entry(
                             entry,
-                            data=connection,
+                            connection,
                             )
-                    #    )
                 elif mqtt_connected and hub.init_state:
                     current_time = time.time()
                     if current_time - start_time >= interval:
