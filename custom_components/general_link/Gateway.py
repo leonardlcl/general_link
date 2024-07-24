@@ -165,8 +165,14 @@ class Gateway:
         elif topic.endswith("p28"):
             """Scene List data"""
             scene_list = payload["data"]
+            room_map = self.room_map
             for scene in scene_list:
                 scene["unique_id"] = f"{scene['id']}"
+                room_id = scene["room"]
+                if room_id == 0:
+                    scene["room_name"] = "整屋"
+                else:
+                    scene["room_name"] = room_map.get(room_id, {}).get('name', "未知房间")
                 await self._add_entity("scene", scene)
         elif topic.endswith("event/3"):
             """Device state data"""
