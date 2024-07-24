@@ -6,11 +6,10 @@ import logging
 from abc import ABC
 
 from homeassistant.components.climate import ClimateEntity, HVACMode, ClimateEntityFeature, FAN_LOW, FAN_MEDIUM, \
-    FAN_MIDDLE, FAN_HIGH, FAN_TOP, FAN_AUTO, HVAC_MODE_OFF, HVAC_MODE_COOL, HVAC_MODE_HEAT
-from homeassistant.components.climate.const import HVAC_MODE_DRY, HVAC_MODE_AUTO, HVAC_MODE_FAN_ONLY
+    FAN_MIDDLE, FAN_HIGH, FAN_TOP, FAN_AUTO
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import TEMP_CELSIUS, PRECISION_WHOLE
+from homeassistant.const import UnitOfTemperature, PRECISION_WHOLE
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
@@ -74,10 +73,10 @@ class CustomClimate(ClimateEntity, ABC):
 
     _attr_fan_modes = [FAN_AUTO, FAN_LOW, FAN_MEDIUM, FAN_HIGH]
 
-    _attr_hvac_modes = [HVAC_MODE_OFF, HVAC_MODE_COOL, HVAC_MODE_HEAT, HVAC_MODE_FAN_ONLY, HVAC_MODE_DRY,
-                        HVAC_MODE_AUTO]
+    _attr_hvac_modes = [HVACMode.OFF, HVACMode.COOL, HVACMode.HEAT, HVACMode.FAN_ONLY, HVACMode.DRY,
+                        HVACMode.AUTO]
 
-    _attr_temperature_unit = TEMP_CELSIUS
+    _attr_temperature_unit = UnitOfTemperature.CELSIUS
 
     _attr_max_temp = 30
 
@@ -97,6 +96,8 @@ class CustomClimate(ClimateEntity, ABC):
         self._attr_unique_id = config["unique_id"]
 
         self._attr_entity_id = config["unique_id"]
+
+        self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.FAN_MODE
 
         self.sn = config["sn"]
 
@@ -139,32 +140,32 @@ class CustomClimate(ClimateEntity, ABC):
         }
 
     def update_state(self, data):
-        _LOGGER.warning("update_state : %s", data)
+        #_LOGGER.warning("update_state : %s", data)
 
         if "a64" in data:
             on_off = int(data["a64"])
             self.on_off_cache = int(data["a64"])
             if on_off == 0:
-                self._attr_hvac_mode = HVAC_MODE_OFF
+                self._attr_hvac_mode = HVACMode.OFF
 
         if self.on_off_cache == 1:
             if "a66" in data:
                 mode = int(data["a66"])
                 if mode == 0:
-                    self._attr_hvac_mode = HVAC_MODE_AUTO
-                    self.hvac_mode_cache = HVAC_MODE_AUTO
+                    self._attr_hvac_mode = HVACMode.AUTO
+                    self.hvac_mode_cache = HVACMode.AUTO
                 elif mode == 1:
-                    self._attr_hvac_mode = HVAC_MODE_COOL
-                    self.hvac_mode_cache = HVAC_MODE_COOL
+                    self._attr_hvac_mode = HVACMode.COOL
+                    self.hvac_mode_cache = HVACMode.COOL
                 elif mode == 2:
-                    self._attr_hvac_mode = HVAC_MODE_HEAT
-                    self.hvac_mode_cache = HVAC_MODE_HEAT
+                    self._attr_hvac_mode = HVACMode.HEAT
+                    self.hvac_mode_cache = HVACMode.HEAT
                 elif mode == 3:
-                    self._attr_hvac_mode = HVAC_MODE_FAN_ONLY
-                    self.hvac_mode_cache = HVAC_MODE_FAN_ONLY
+                    self._attr_hvac_mode = HVACMode.FAN_ONLY
+                    self.hvac_mode_cache = HVACMode.FAN_ONLY
                 elif mode == 4:
-                    self._attr_hvac_mode = HVAC_MODE_DRY
-                    self.hvac_mode_cache = HVAC_MODE_DRY
+                    self._attr_hvac_mode = HVACMode.DRY
+                    self.hvac_mode_cache = HVACMode.DRY
             else:
                 self._attr_hvac_mode = self.hvac_mode_cache
 
@@ -224,25 +225,25 @@ class CustomClimate(ClimateEntity, ABC):
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         # _LOGGER.warning("set_hvac_mode : %s", hvac_mode)
-        if hvac_mode == HVAC_MODE_OFF:
+        if hvac_mode == HVACMode.OFF:
             await self.exec_command(19, 0)
         else:
-            if self._attr_hvac_mode == HVAC_MODE_OFF:
+            if self._attr_hvac_mode == HVACMode.OFF:
                 await self.exec_command(19, 1)
                 # time.sleep(1)
-            if hvac_mode == HVAC_MODE_AUTO:
+            if hvac_mode == HVACMode.AUTO:
                 await self.exec_command(21, 0)
-            elif hvac_mode == HVAC_MODE_COOL:
+            elif hvac_mode == HVACMode.COOL:
                 await self.exec_command(21, 1)
-            elif hvac_mode == HVAC_MODE_HEAT:
+            elif hvac_mode == HVACMode.HEAT:
                 await self.exec_command(21, 2)
-            elif hvac_mode == HVAC_MODE_FAN_ONLY:
+            elif hvac_mode == HVACMode.FAN_ONLY:
                 await self.exec_command(21, 3)
-            elif hvac_mode == HVAC_MODE_DRY:
+            elif hvac_mode == HVACMode.DRY:
                 await self.exec_command(21, 4)
 
         self._attr_hvac_mode = hvac_mode
-        self.hvac_mode_cache = HVAC_MODE_HEAT
+        self.hvac_mode_cache = HVACMode.HEAT
         self.async_write_ha_state()
 
     async def exec_command(self, i: int, v):
@@ -270,15 +271,15 @@ class CustomClimateH(ClimateEntity, ABC):
 
     device_class = COMPONENT
 
-    supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
+    _attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
 
     #_attr_fan_modes = [FAN_AUTO, FAN_LOW, FAN_MEDIUM, FAN_MIDDLE, FAN_HIGH, FAN_TOP]
 
     #_attr_fan_modes = [FAN_AUTO, FAN_LOW, FAN_MEDIUM, FAN_HIGH]
 
-    _attr_hvac_modes = [HVAC_MODE_OFF,  HVAC_MODE_AUTO]
+    _attr_hvac_modes = [HVACMode.OFF,  HVACMode.AUTO]
 
-    _attr_temperature_unit = TEMP_CELSIUS
+    _attr_temperature_unit = UnitOfTemperature.CELSIUS
 
     _attr_max_temp = 32
 
@@ -286,9 +287,9 @@ class CustomClimateH(ClimateEntity, ABC):
 
     _attr_target_temperature_step = PRECISION_WHOLE
 
-    _attr_hvac_mode = HVAC_MODE_AUTO
+    _attr_hvac_mode = HVACMode.AUTO
 
-    hvac_mode_cache = HVAC_MODE_AUTO
+    hvac_mode_cache = HVACMode.AUTO
 
     on_off_cache = 1
 
@@ -298,7 +299,9 @@ class CustomClimateH(ClimateEntity, ABC):
         self._attr_unique_id = config["unique_id"]+"H"
 
         self._attr_entity_id = config["unique_id"]+"H"
-
+        
+        self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
+            
         self.sn = config["sn"]
 
         self._attr_name = config["name"]+"_地暖"
@@ -344,16 +347,16 @@ class CustomClimateH(ClimateEntity, ABC):
         }
 
     def update_state(self, data):
-        _LOGGER.warning("update_stateh : %s", data)
+        #_LOGGER.warning("update_stateh : %s", data)
 
         if "a113" in data:
             on_off = int(data["a113"])
             self.on_off_cache = int(data["a113"])
             if on_off == 0:
-                self._attr_hvac_mode = HVAC_MODE_OFF
+                self._attr_hvac_mode = HVACMode.OFF
             else:
-                self._attr_hvac_mode = HVAC_MODE_AUTO
-                self.hvac_mode_cache = HVAC_MODE_AUTO
+                self._attr_hvac_mode = HVACMode.AUTO
+                self.hvac_mode_cache = HVACMode.AUTO
 
         if "a114" in data:
             target_temp = float(data["a114"])
@@ -386,16 +389,16 @@ class CustomClimateH(ClimateEntity, ABC):
         if self._attr_a109 != 2:
             await self.exec_command(32, 2)
             self._attr_a109 = 2
-        if hvac_mode == HVAC_MODE_OFF:
+        if hvac_mode == HVACMode.OFF:
             await self.exec_command(33, 0)
         else:
-            if self._attr_hvac_mode == HVAC_MODE_AUTO:
+            if self._attr_hvac_mode == HVACMode.AUTO:
                 await self.exec_command(33, 1)
                 # time.sleep(1)
-            if hvac_mode == HVAC_MODE_AUTO:
+            if hvac_mode == HVACMode.AUTO:
                 await self.exec_command(33, 1)
         self._attr_hvac_mode = hvac_mode
-        self.hvac_mode_cache = HVAC_MODE_AUTO
+        self.hvac_mode_cache = HVACMode.AUTO
         self.async_write_ha_state()
 
     async def exec_command(self, i: int, p):
@@ -438,26 +441,26 @@ class CustomClimateW(CustomClimate):
             on_off = int(data["a64"])
             self.on_off_cache = int(data["a64"])
             if on_off == 0:
-                self._attr_hvac_mode = HVAC_MODE_OFF
+                self._attr_hvac_mode = HVACMode.OFF
 
         if self.on_off_cache == 1:
             if "a66" in data:
                 mode = int(data["a66"])
                 if mode == 0:
-                    self._attr_hvac_mode = HVAC_MODE_AUTO
-                    self.hvac_mode_cache = HVAC_MODE_AUTO
+                    self._attr_hvac_mode = HVACMode.AUTO
+                    self.hvac_mode_cache = HVACMode.AUTO
                 elif mode == 1:
-                    self._attr_hvac_mode = HVAC_MODE_COOL
-                    self.hvac_mode_cache = HVAC_MODE_COOL
+                    self._attr_hvac_mode = HVACMode.COOL
+                    self.hvac_mode_cache = HVACMode.COOL
                 elif mode == 2:
-                    self._attr_hvac_mode = HVAC_MODE_HEAT
-                    self.hvac_mode_cache = HVAC_MODE_HEAT
+                    self._attr_hvac_mode = HVACMode.HEAT
+                    self.hvac_mode_cache = HVACMode.HEAT
                 elif mode == 3:
-                    self._attr_hvac_mode = HVAC_MODE_FAN_ONLY
-                    self.hvac_mode_cache = HVAC_MODE_FAN_ONLY
+                    self._attr_hvac_mode = HVACMode.FAN_ONLY
+                    self.hvac_mode_cache = HVACMode.FAN_ONLY
                 elif mode == 4:
-                    self._attr_hvac_mode = HVAC_MODE_DRY
-                    self.hvac_mode_cache = HVAC_MODE_DRY
+                    self._attr_hvac_mode = HVACMode.DRY
+                    self.hvac_mode_cache = HVACMode.DRY
             else:
                 self._attr_hvac_mode = self.hvac_mode_cache
 
@@ -529,25 +532,25 @@ class CustomClimateW(CustomClimate):
          if self._attr_a109 != 1:
             await self.exec_command(32, 1)
             self._attr_a109 = 1
-         if hvac_mode == HVAC_MODE_OFF:
+         if hvac_mode == HVACMode.OFF:
              await self.exec_command(19, 0)
          else:
-             if self._attr_hvac_mode == HVAC_MODE_OFF:
+             if self._attr_hvac_mode == HVACMode.OFF:
                  await self.exec_command(19, 1)
                  # time.sleep(1)
-             if hvac_mode == HVAC_MODE_AUTO:
+             if hvac_mode == HVACMode.AUTO:
                  await self.exec_command(21, 0)
-             elif hvac_mode == HVAC_MODE_COOL:
+             elif hvac_mode == HVACMode.COOL:
                  await self.exec_command(21, 1)
-             elif hvac_mode == HVAC_MODE_HEAT:
+             elif hvac_mode == HVACMode.HEAT:
                  await self.exec_command(21, 2)
-             elif hvac_mode == HVAC_MODE_FAN_ONLY:
+             elif hvac_mode == HVACMode.FAN_ONLY:
                  await self.exec_command(21, 3)
-             elif hvac_mode == HVAC_MODE_DRY:
+             elif hvac_mode == HVACMode.DRY:
                  await self.exec_command(21, 4)
 
          self._attr_hvac_mode = hvac_mode
-         self.hvac_mode_cache = HVAC_MODE_HEAT
+         self.hvac_mode_cache = HVACMode.HEAT
          self.async_write_ha_state()
 
 
