@@ -57,6 +57,8 @@ class CustomScene(Scene):
 
         self._attr_name = config["name"]
 
+        self.room_name = config["room_name"]+"-场景"
+
         self.hass = hass
 
         self.config_entry = config_entry
@@ -65,9 +67,9 @@ class CustomScene(Scene):
     def device_info(self) -> DeviceInfo:
         """Information about this entity/device."""
         return {
-            "identifiers": {(DOMAIN, self.unique_id)},
+            "identifiers": {(DOMAIN, self.room_name)},
             # If desired, the name for the device could be different to the entity
-            "name": self.name,
+            "name": self.room_name,
             "manufacturer": MANUFACTURER,
         }
 
