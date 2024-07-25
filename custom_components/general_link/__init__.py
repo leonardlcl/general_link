@@ -55,13 +55,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     reconnect_flag.clear()
 
+    #hub.init_state = True
+
     #reconnect_flag = asyncio.Event()
     
     # 注册配置项更新监听器
     entry.add_update_listener(_async_config_entry_updated)
 
 
-    await asyncio.sleep(2)
+    
 
     hass.async_create_background_task(
 
@@ -91,22 +93,24 @@ async def monitor_connection(hass, hub, entry, reconnect_flag):
         try:
 
             # 检查MQTT连接状态
+            await asyncio.sleep(10)
             mqtt_connected = hub.hass.data[MQTT_CLIENT_INSTANCE].connected
-
             current_time = time.time()
 
             # 如果MQTT未连接或网关初始化状态为False，则尝试重新连接
             if not mqtt_connected or not hub.init_state:
 
-                hub.reconnect_flag = True
-
+                
+                _LOGGER.warning("获取下entry2 %s", entry.data)
                 # 通过mDNS扫描设备
-                connection = await scanner.scan_single(entry.data[CONF_NAME], 10)
+                connection = await scanner.scan_single(entry.data[CONF_NAME], 5)
 
                 _LOGGER.warning("mqtt 连接不上了，需要重新扫描一下，得到连接 %s", connection)
 
                 # 如果扫描到设备，更新配置项数据
-                if connection is not {}:
+                if connection is not None:
+
+                    hub.reconnect_flag = True
 
                     if CONF_LIGHT_DEVICE_TYPE in entry.data:
 
@@ -114,9 +118,12 @@ async def monitor_connection(hass, hub, entry, reconnect_flag):
 
                         connection["random"] = time.time()
 
-                        _LOGGER.warning("connection rk  %s", connection)
+                    try:
+                         hass.config_entries.async_update_entry(entry, data=connection)
+                    
+                    except Exception as e:
 
-                    await hass.config_entries.async_update_entry(entry, data=connection)
+                         _LOGGER.error("Error in update_entry: %s", e)
 
 
             # 每300秒同步一次群组状态
@@ -132,7 +139,7 @@ async def monitor_connection(hass, hub, entry, reconnect_flag):
             _LOGGER.error("Error in monitor_connection: %s", e)
 
 
-        await asyncio.sleep(20)  # 每20秒检测一次连接状态
+        await asyncio.sleep(10)  # 每20秒检测一次连接状态
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """卸载配置项的异步函数。

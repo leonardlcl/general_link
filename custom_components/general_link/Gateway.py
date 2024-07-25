@@ -26,12 +26,13 @@ class Gateway:
         self.hass = hass
         self._entry = entry
         self._last_init_time = None
+        _LOGGER.warning("获取下entry %s", entry.data)
         self._id = entry.data[CONF_NAME]
 
         self.light_group_map = {}
         self.room_map = {}
         self.room_list = []
-        self.devTypes = [1, 2, 3, 9, 11]
+        self.devTypes = [1, 2, 3,7,9, 11]
 
         self.reconnect_flag = True
 
@@ -90,6 +91,12 @@ class Gateway:
             elif device_type == 11:
                 """Climate"""
                 await self._add_entity("climate", device)
+            elif device_type == 7:
+                """sensor"""
+                if "a14" in device:
+                   await self._add_entity("sensor", device)
+                if "a15" in device:
+                   await self._add_entity("binary_sensor", device)
             elif device_type == 9:
                 """Constant Temperature Control Panel"""
                 a110 = int(device["a110"])
@@ -278,6 +285,13 @@ class Gateway:
                  async_dispatcher_send(
                     self.hass, EVENT_ENTITY_STATE_UPDATE.format(data["sn"]+"F"), data
                  )
+            elif data["devType"] == 7:
+                async_dispatcher_send(
+                   self.hass, EVENT_ENTITY_STATE_UPDATE.format(data["sn"]+"L"), data
+                 )
+                async_dispatcher_send(
+                   self.hass, EVENT_ENTITY_STATE_UPDATE.format(data["sn"]+"M"), data
+                 )
             else:
                 async_dispatcher_send(
                     self.hass, EVENT_ENTITY_STATE_UPDATE.format(data["sn"]), data
@@ -340,7 +354,6 @@ class Gateway:
         """Initialize the gateway business logic, including subscribing to device data, scene data, and basic data,
         and sending data reporting instructions to the gateway"""
         self._entry = entry
-
         discovery_topics = [
             # Subscribe to device list
             f"{MQTT_TOPIC_PREFIX}/center/p5",
