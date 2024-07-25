@@ -26,13 +26,12 @@ class Gateway:
         self.hass = hass
         self._entry = entry
         self._last_init_time = None
-        _LOGGER.warning("获取下entry %s", entry.data)
         self._id = entry.data[CONF_NAME]
 
         self.light_group_map = {}
         self.room_map = {}
         self.room_list = []
-        self.devTypes = [1, 2, 3,7,9, 11]
+        self.devTypes = [1, 2, 3, 7, 9, 11]
 
         self.reconnect_flag = True
 
@@ -103,7 +102,6 @@ class Gateway:
                 a111 = int(device["a111"])
                 a112 = int(device["a112"])
                 if a110 == 2 or a111 == 1 :
-                   #device["name"] = device["name"]+"水机"
                    await self._add_entity("climate", device)
                 if a112 == 1 :
                    await self._add_entity("fan", device)
