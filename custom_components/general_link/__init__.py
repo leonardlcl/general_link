@@ -124,7 +124,11 @@ async def monitor_connection(hass, hub, entry, reconnect_flag):
                     except Exception as e:
 
                          _LOGGER.error("Error in update_entry: %s", e)
+                    
+                    # 如果没扫描到设备，但是MQTT已连接，则尝试重新初始化网关
+                    elif mqtt_connected and not hub.init_state: 
 
+                         await _async_config_entry_updated(hass, entry)
 
             # 每300秒同步一次群组状态
             elif current_time - last_sync_time >= 300 :
