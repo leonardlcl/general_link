@@ -1,183 +1,139 @@
-import logging
-import time
 import asyncio
-from homeassistant.components import network
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.const import CONF_NAME
+import logging
+from typing import Dict, Optional
+import time
+import re
+
+from homeassistant.components.zeroconf import info_from_service
+
 from homeassistant.components import zeroconf
-from ipaddress import ip_network
-from .Gateway import Gateway
-from .const import PLATFORMS, MQTT_CLIENT_INSTANCE, CONF_LIGHT_DEVICE_TYPE, DOMAIN, FLAG_IS_INITIALIZED, \
-    CACHE_ENTITY_STATE_UPDATE_KEY_DICT, CONF_BROKER
-from .mdns import MdnsScanner
+
+from zeroconf import IPVersion, ServiceBrowser, ServiceStateChange, Zeroconf
+
+from homeassistant.core import HomeAssistant,callback
+
+from zeroconf.asyncio import AsyncServiceInfo, AsyncZeroconf
+
+from .const import MDNS_SCAN_SERVICE
+
+from .util import format_connection
 
 _LOGGER = logging.getLogger(__name__)
-reconnect_flag = asyncio.Event()
 
-async def _async_config_entry_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """当配置项更新时的异步处理函数。
-    参数:
-    - hass: HomeAssistant对象，表示Home Assistant实例。
-    - entry: ConfigEntry对象，表示配置项。
-    """
-    hub = hass.data[DOMAIN][entry.entry_id]
-    hass.async_create_task(
-        hub.init(entry, False)
-    )
+class MdnsScanner:
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """基于配置项的异步设置函数。
-    参数:
-    - hass: HomeAssistant对象，表示Home Assistant实例。
-    - entry: ConfigEntry对象，表示配置项。
-    返回:
-    - bool: 表示设置是否成功。
-    """
-    """Set up from a config entry."""
-    hub = Gateway(hass, entry)
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = hub
+    def __init__(self, hass: HomeAssistant):
 
-    # 初始化标记和实体状态更新键字典
-    hass.data.setdefault(FLAG_IS_INITIALIZED, False)
-    hass.data.setdefault(CACHE_ENTITY_STATE_UPDATE_KEY_DICT, {})
+        self.services: Dict[str, Dict] = {}
 
-    # 如果尚未初始化，则进行初始化操作
-    if not hass.data[FLAG_IS_INITIALIZED]:
-        hass.data[FLAG_IS_INITIALIZED] = True
-        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    else:
-        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+        self.hass = hass
 
-    # 启用重连标志
-    hub.reconnect_flag = True
-
-    hass.async_create_task(
-        hub.init(entry, True)
-    )
-
-    reconnect_flag.clear()
-
-    #hub.init_state = True
-
-    #reconnect_flag = asyncio.Event()
+        #self.original_add_service = self.add_service
     
-    # 注册配置项更新监听器
-    entry.add_update_listener(_async_config_entry_updated)
-
-    adapters = await network.async_get_adapters(hass)
-
-    for adapter in adapters:
-      for ip_info in adapter["ipv4"]:
-        local_ip = ip_info["address"]
-        network_prefix = ip_info["network_prefix"]
-        ip_net = ip_network(f"{local_ip}/{network_prefix}", False)
-
-    _LOGGER.warning(f"adapters ,{adapters}")
-    _LOGGER.warning(f"ip_net ,{ip_net}")
-
-    
-
-    hass.async_create_background_task(
-
-        monitor_connection(hass, hub, entry, reconnect_flag),
-
-        "monitor_connection"
-
-    )
-    
-    return True
-
-async def monitor_connection(hass, hub, entry, reconnect_flag):
-    """监控连接的异步函数。
-    参数:
-    - hass: HomeAssistant对象，表示Home Assistant实例。
-    - hub: Gateway对象，表示网关。
-    - entry: ConfigEntry对象，表示配置项。
-    - reconnect_flag: asyncio.Event对象，用于控制重连逻辑。
-    """
-    scanner = MdnsScanner(hass)
-
-    last_sync_time = 0  # 用于记录上一次同步的时间
+    @callback
+    def remove_service(self, zeroconf: Zeroconf, service_type: str, name: str):
+        _LOGGER.warning("state_change : %s", self)
+        service_type = service_type[:-1]
+        name = name.replace(f".{service_type}.", "")
+        del self.services[name]
 
 
-    while not reconnect_flag.is_set():
 
+    @callback
+    def update_service(self, zeroconf: Zeroconf, service_type: str, name: str):
+        discovery_info = zeroconf.get_service_info(service_type, name, timeout=5000)
+
+        if discovery_info is not None:
+            discovery_info = info_from_service(discovery_info)
+            service_type = service_type[:-1]
+            name = name.replace(f".{service_type}.", "")
+            connection = format_connection(discovery_info)
+            self.services[name] = connection
+            #_LOGGER.warning("change update_service : %s", connection)
+
+   
+    @callback
+
+    def add_service(self, zeroconf: Zeroconf, service_type: str, name: str):
+        discovery_info = zeroconf.get_service_info(service_type, name, timeout=5000)
+
+        if discovery_info is not None:
+            discovery_info = info_from_service(discovery_info)
+            service_type = service_type[:-1]
+            name = name.replace(f".{service_type}.", "")
+            connection = format_connection(discovery_info)
+            self.services[name] = connection
+            #_LOGGER.warning("change add_service : %s", connection)
+
+
+
+    async def scan_all(self, timeout: float = 5.0) -> dict:
+        """Scan for all services on the network."""
         try:
-
-            # 检查MQTT连接状态
-            await asyncio.sleep(10)
-            mqtt_connected = hub.hass.data[MQTT_CLIENT_INSTANCE].connected
-            current_time = time.time()
-
-
-            # 如果MQTT未连接或网关初始化状态为False，则尝试重新连接
-            if not mqtt_connected or not hub.init_state:
-
-                
-                #await zeroconf.async_setup(hass,entry)
-                # 通过mDNS扫描设备
-                
-                connection = await scanner.scan_single(entry.data[CONF_NAME], 5)
-
-                _LOGGER.warning("mqtt 连接不上了，需要重新扫描一下，得到连接 %s", connection)
-
-                hub.reconnect_flag = True
-
-                # 如果扫描到设备，更新配置项数据
-                if connection is not None:
-
-                    
-
-                    if CONF_LIGHT_DEVICE_TYPE in entry.data:
-
-                        connection[CONF_LIGHT_DEVICE_TYPE] = entry.data[CONF_LIGHT_DEVICE_TYPE]
-
-                        connection["random"] = time.time()
-
-                    try:
-                         hass.config_entries.async_update_entry(entry, data=connection)
-                    
-                    except Exception as e:
-
-                         _LOGGER.error("Error in update_entry: %s", e)
-                # 如果没扫描到设备，但是MQTT已连接，则尝试重新初始化网关
-                elif mqtt_connected and not hub.init_state: 
-
-                    await _async_config_entry_updated(hass, entry)
-
-
-            # 每300秒同步一次群组状态
-            elif current_time - last_sync_time >= 300 :
-                
-                last_sync_time = current_time
-
-                await hub.sync_group_status(False)
-
-
+                zeroconf_instance = await zeroconf.async_get_instance(self.hass)
+                browser = ServiceBrowser(zeroconf_instance, MDNS_SCAN_SERVICE, self)
         except Exception as e:
+                # 日志记录具体的错误，考虑在实际应用中使用更具体的日志记录方式
+                _LOGGER.error(f"初始化Zeroconf实例或ServiceBrowser时发生错误: {e}")
+                return None
+        try:
+            # 使用 asyncio.wait_for 来优雅地处理超时
+            await asyncio.wait_for(self._scan_loop(browser), timeout)
+        except asyncio.TimeoutError:
+            _LOGGER.info("Scanning timed out.")
+        except Exception as e:
+            _LOGGER.error(f"An error occurred during scanning: {e}")
+        finally:
+            if browser is not None:
+                browser.cancel()
+            #zeroconf_instance.ha_async_close()
 
-            _LOGGER.error("Error in monitor_connection: %s", e)
+        return self.services
 
 
-        await asyncio.sleep(10)  # 每20秒检测一次连接状态
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """卸载配置项的异步函数。
-    参数:
-    - hass: HomeAssistant对象，表示Home Assistant实例。
-    - entry: ConfigEntry对象，表示配置项。
-    返回:
-    - bool: 表示卸载是否成功。
-    """
-    reconnect_flag.set()  # Notify monitor_connection to stop
+    async def scan_single(self, name: str, timeout: float = 5.0) -> Optional[Dict]:
+            self.services = {}
 
-    await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+            try:
+                zeroconf_instance = await zeroconf.async_get_instance(self.hass)
+                browser = ServiceBrowser(zeroconf_instance, MDNS_SCAN_SERVICE, self)
+            except Exception as e:
+                # 日志记录具体的错误，考虑在实际应用中使用更具体的日志记录方式
+                _LOGGER.error(f"初始化Zeroconf实例或ServiceBrowser时发生错误: {e}")
+                return None
+            try:
+                # 使用 asyncio.wait_for 替代内部计时器和循环
+                await asyncio.wait_for(self._scan_loop(browser), timeout)
+            except asyncio.TimeoutError:
+                _LOGGER.info("Scanning timed out.")
+            except Exception as e:
+                _LOGGER.error(f"An error occurred during scanning: {e}")
+            finally:
+                if browser is not None:
+                    browser.cancel()
+                #zeroconf_instance.ha_async_close()
 
-    hub = hass.data[DOMAIN].pop(entry.entry_id)
+            # 使用日志记录服务状态，而不是直接返回值
+            # _LOGGER.warning("self.services  %s", self.services)      
+            if name in self.services:
+                return self.services[name]
+            else:
+                # 考虑在服务未找到时返回 None 而不是一个空字典
+                return None
 
-    await hub.disconnect()
+    async def _scan_loop(self, browser):
+        """Internal loop for scanning."""
+        timeout = 10  # 20秒超时
+        start_time = time.time()
 
-    hass.data[CACHE_ENTITY_STATE_UPDATE_KEY_DICT] = {}
+        while True:
+          await asyncio.sleep(1)  # 暂时暂停一秒
 
-    return True
+          # Check if the timeout has been reached
+          if time.time() - start_time > timeout:
+            print("Timeout reached, exiting scan loop.")
+            return
+
+
+       
