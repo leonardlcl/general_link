@@ -106,11 +106,11 @@ async def monitor_connection(hass, hub, entry, reconnect_flag):
                 connection = await scanner.scan_single(entry.data[CONF_NAME], 5)
 
                 _LOGGER.warning("mqtt 连接不上了，需要重新扫描一下，得到连接 %s", connection)
-
+                hub.reconnect_flag = True
                 # 如果扫描到设备，更新配置项数据
                 if connection is not None:
 
-                    hub.reconnect_flag = True
+                    
 
                     if CONF_LIGHT_DEVICE_TYPE in entry.data:
 
@@ -126,9 +126,9 @@ async def monitor_connection(hass, hub, entry, reconnect_flag):
                          _LOGGER.error("Error in update_entry: %s", e)
                     
                     # 如果没扫描到设备，但是MQTT已连接，则尝试重新初始化网关
-                    elif mqtt_connected and not hub.init_state: 
+                elif mqtt_connected and not hub.init_state: 
 
-                         await _async_config_entry_updated(hass, entry)
+                    await _async_config_entry_updated(hass, entry)
 
             # 每300秒同步一次群组状态
             elif current_time - last_sync_time >= 300 :
