@@ -7,10 +7,10 @@ from typing import Any
 
 from homeassistant.components.cover import (
     ATTR_POSITION,
-    SUPPORT_CLOSE,
-    SUPPORT_OPEN,
-    SUPPORT_SET_POSITION,
-    CoverEntity, SUPPORT_STOP,
+    ATTR_TILT_POSITION,
+    CoverEntityFeature,
+    CoverEntity,
+    CoverDeviceClass,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
@@ -35,8 +35,13 @@ async def async_setup_entry(
     which is used to create a sub-device"""
 
     async def async_discover(config_payload):
+        
         try:
-            async_add_entities([CustomCover(hass, config_payload, config_entry)])
+            if config_payload["openWay"] <= 4:
+               async_add_entities([CustomCover(hass, config_payload, config_entry)])
+            else:
+               async_add_entities([CustomCoverA(hass, config_payload, config_entry)])
+                
         except Exception:
             raise
 
@@ -59,10 +64,10 @@ class CustomCover(CoverEntity):
     should_poll = False
 
     """Supports set position, open, close and stop operations"""
-    supported_features = SUPPORT_SET_POSITION | SUPPORT_OPEN | SUPPORT_CLOSE | SUPPORT_STOP
+    supported_features = CoverEntityFeature.SET_POSITION | CoverEntityFeature.OPEN | CoverEntityFeature.CLOSE | CoverEntityFeature.STOP
 
     """Device class is curtain"""
-    device_class = "curtain"
+    device_class = CoverDeviceClass.CURTAIN
 
     def __init__(self, hass: HomeAssistant, config: dict, config_entry: ConfigEntry) -> None:
         self._attr_unique_id = config["unique_id"]
@@ -73,7 +78,7 @@ class CustomCover(CoverEntity):
 
         self._attr_name = config["name"]
 
-        self._attr_device_class = "curtain"
+        self._attr_device_class = CoverDeviceClass.CURTAIN
 
         self._target_position = 100
 
@@ -191,6 +196,77 @@ class CustomCover(CoverEntity):
 
         if action == 3:
             message["data"]["travel"] = round(position / 100, 2)
+
+        await self.hass.data[MQTT_CLIENT_INSTANCE].async_publish(
+            "P/0/center/q21",
+            json.dumps(message),
+            0,
+            False
+        )
+
+class CustomCoverA(CustomCover):
+    """Custom entity class to handle business logic related to curtains"""
+    supported_features = CoverEntityFeature.SET_POSITION | CoverEntityFeature.OPEN | CoverEntityFeature.CLOSE | CoverEntityFeature.STOP | CoverEntityFeature.SET_TILT_POSITION
+    
+    device_class = CoverDeviceClass.CURTAIN
+
+    def __init__(self, hass: HomeAssistant, config: dict, config_entry: ConfigEntry) -> None:
+          super().__init__(hass, config, config_entry)
+          self._attr_device_class = CoverDeviceClass.CURTAIN
+          self._attr_supported_features = CoverEntityFeature.SET_POSITION | CoverEntityFeature.OPEN | CoverEntityFeature.CLOSE | CoverEntityFeature.STOP | CoverEntityFeature.SET_TILT_POSITION
+          self._target_tilt_position = 100
+          self._current_tilt_position = 100
+          
+    async def async_set_cover_tilt_position(self, **kwargs):
+        """Move the cover tilt to a specific position."""
+        tilt_position = kwargs[ATTR_TILT_POSITION]
+        await self.set_tilt_position(kwargs[ATTR_TILT_POSITION])
+        await self.exec_command(11, tilt_position)
+
+    def update_state(self, data):
+        if "travel" in data:
+            position = int(data["travel"] * 100)
+            self._target_position = position
+            self._current_position = self._target_position
+        if "a108" in data:
+            position = int(data["a108"] * 100)
+            self._target_tilt_position = position
+            self._current_tilt_position = self._target_tilt_position
+    
+    @property
+    def current_cover_tilt_position(self):
+        """Return the current position of the cover."""
+        return self.tilt_position
+
+    @property
+    def tilt_position(self):
+        """Return position for roller."""
+        return self._current_tilt_position
+
+    
+    async def set_tilt_position(self, tilt_position: int) -> None:
+        """Change curtain position in HA"""
+        self._target_tilt_position = tilt_position
+
+        self._current_tilt_position = self._target_tilt_position
+
+        self.async_write_ha_state()
+    
+    
+    async def exec_command(self, action: int, position: int):
+        """Execute MQTT commands"""
+        message = {
+            "seq": 1,
+            "data": {
+                "sn": self.sn,
+                "action": action
+            }
+        }
+
+        if action == 3:
+            message["data"]["travel"] = round(position / 100, 2)
+        if action == 11:
+            message["data"]["angle"] = round(position / 100, 2)
 
         await self.hass.data[MQTT_CLIENT_INSTANCE].async_publish(
             "P/0/center/q21",

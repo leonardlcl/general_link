@@ -131,7 +131,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_abort(reason="select_error")
 
         """Search the LAN's gateway list"""
-        connection_dict = await scan_and_get_connection_dict(3)
+
+        connection_dict = await scan_and_get_connection_dict(self.hass,3)
 
         connection_name_list = []
 

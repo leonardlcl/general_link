@@ -5,7 +5,9 @@ import logging
 import time
 
 from homeassistant.components.zeroconf import info_from_service
+from homeassistant.components import zeroconf
 from zeroconf import IPVersion, ServiceBrowser, ServiceStateChange, Zeroconf
+from homeassistant.core import HomeAssistant
 
 from .util import format_connection
 
@@ -37,16 +39,17 @@ def on_service_state_change(
     # _LOGGER.warning("change on_service_state_change : %s", connection_dict)
 
 
-async def scan_and_get_connection_dict(timeout):
+async def scan_and_get_connection_dict(hass,timeout):
     """Search a list of gateways within a specified time range"""
-    return await scan_commpn(scan_type="dict", timeout=timeout)
+    return await scan_commpn(hass,scan_type="dict", timeout=timeout)
 
 
-async def scan_commpn(scan_type: str, timeout: int, name=None):
+async def scan_commpn(hass: HomeAssistant,scan_type: str, timeout: int, name=None):
     """scan gateway"""
     global connection_dict
-    zc = Zeroconf(ip_version=IPVersion.All)
-    zc.start()
+    #zc = Zeroconf(ip_version=IPVersion.All)
+    zc = await zeroconf.async_get_instance(hass)
+    #zc.start()
     services = ["_mqtt._tcp.local."]
     kwargs = {'handlers': [on_service_state_change]}
     browser = ServiceBrowser(zc, services, **kwargs)  # type: ignore

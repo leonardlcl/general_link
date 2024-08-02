@@ -31,7 +31,7 @@ class Gateway:
         self.light_group_map = {}
         self.room_map = {}
         self.room_list = []
-        self.devTypes = [1, 2, 3, 9, 11]
+        self.devTypes = [1, 2, 3, 7, 9, 11]
 
         self.reconnect_flag = True
 
@@ -90,12 +90,21 @@ class Gateway:
             elif device_type == 11:
                 """Climate"""
                 await self._add_entity("climate", device)
+            elif device_type == 7:
+                """sensor"""
+                if "a14" in device:
+                   await self._add_entity("sensor", device)
+                if "a15" in device:
+                   await self._add_entity("binary_sensor", device)
             elif device_type == 9:
                 """Constant Temperature Control Panel"""
                 a110 = int(device["a110"])
-                if a110 == 2 :
-                   device["name"] = device["name"]+"水机"
+                a111 = int(device["a111"])
+                a112 = int(device["a112"])
+                if a110 == 2 or a111 == 1 :
                    await self._add_entity("climate", device)
+                if a112 == 1 :
+                   await self._add_entity("fan", device)
             elif device_type == 2:
                 """Switch"""
                 if "relays" in device and "relaysNames" in device and "relaysNum" in device:
@@ -161,8 +170,14 @@ class Gateway:
         elif topic.endswith("p28"):
             """Scene List data"""
             scene_list = payload["data"]
+            room_map = self.room_map
             for scene in scene_list:
                 scene["unique_id"] = f"{scene['id']}"
+                room_id = scene["room"]
+                if room_id == 0:
+                    scene["room_name"] = "整屋"
+                else:
+                    scene["room_name"] = room_map.get(room_id, {}).get('name', "未知房间")
                 await self._add_entity("scene", scene)
         elif topic.endswith("event/3"):
             """Device state data"""
@@ -256,6 +271,29 @@ class Gateway:
                 async_dispatcher_send(
                     self.hass, EVENT_ENTITY_STATE_UPDATE.format(f"switch{data['sn']}{relay}"), status
                 )
+        #恒温多实体触发
+        elif "devType" in data:
+            if data["devType"] == 9:
+                 async_dispatcher_send(
+                   self.hass, EVENT_ENTITY_STATE_UPDATE.format(data["sn"]), data
+                 )
+                 async_dispatcher_send(
+                    self.hass, EVENT_ENTITY_STATE_UPDATE.format(data["sn"]+"H"), data
+                 )
+                 async_dispatcher_send(
+                    self.hass, EVENT_ENTITY_STATE_UPDATE.format(data["sn"]+"F"), data
+                 )
+            elif data["devType"] == 7:
+                async_dispatcher_send(
+                   self.hass, EVENT_ENTITY_STATE_UPDATE.format(data["sn"]+"L"), data
+                 )
+                async_dispatcher_send(
+                   self.hass, EVENT_ENTITY_STATE_UPDATE.format(data["sn"]+"M"), data
+                 )
+            else:
+                async_dispatcher_send(
+                    self.hass, EVENT_ENTITY_STATE_UPDATE.format(data["sn"]), data
+                )
         else:
             async_dispatcher_send(
                 self.hass, EVENT_ENTITY_STATE_UPDATE.format(data["sn"]), data
@@ -314,7 +352,6 @@ class Gateway:
         """Initialize the gateway business logic, including subscribing to device data, scene data, and basic data,
         and sending data reporting instructions to the gateway"""
         self._entry = entry
-
         discovery_topics = [
             # Subscribe to device list
             f"{MQTT_TOPIC_PREFIX}/center/p5",

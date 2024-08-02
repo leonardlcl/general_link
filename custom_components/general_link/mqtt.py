@@ -5,11 +5,11 @@ import time
 from functools import lru_cache
 from typing import Any, Iterable, Callable
 
-from homeassistant.components.mqtt import MQTT_DISCONNECTED, PublishPayloadType, ReceiveMessage, CONF_KEEPALIVE, \
-    MQTT_CONNECTED
-from homeassistant.components.mqtt.client import _raise_on_error, TIMEOUT_ACK, SubscribePayloadType, Subscription, \
+from homeassistant.components.mqtt import PublishPayloadType, ReceiveMessage, CONF_KEEPALIVE, \
+    MQTT_CONNECTION_STATE
+from homeassistant.components.mqtt.client import TIMEOUT_ACK, SubscribePayloadType, Subscription, \
     _matcher_for_topic
-from homeassistant.components.mqtt.models import AsyncMessageCallbackType, MessageCallbackType
+from homeassistant.components.mqtt.models import  MessageCallbackType
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PORT, CONF_USERNAME, CONF_PASSWORD
 from homeassistant.core import HomeAssistant, callback, HassJob
@@ -25,6 +25,14 @@ from paho.mqtt.client import MQTTMessage
 from .const import CONF_BROKER
 
 _LOGGER = logging.getLogger(__name__)
+
+def _raise_on_error(result_code: int) -> None:
+    """Raise error if error result."""
+    # pylint: disable-next=import-outside-toplevel
+    import paho.mqtt.client as mqtt
+
+    if result_code and (message := mqtt.error_string(result_code)):
+        raise HomeAssistantError(f"Error talking to MQTT: {message}")
 
 
 def _raise_on_errors(result_codes: Iterable[int | None]) -> None:
@@ -133,7 +141,7 @@ class MqttClient:
             return
 
         self.connected = True
-        dispatcher_send(self.hass, MQTT_CONNECTED)
+        dispatcher_send(self.hass, MQTT_CONNECTION_STATE, True)
         _LOGGER.warning(
             "Connected to MQTT server %s:%s (%s)",
             self.conf[CONF_BROKER],
@@ -157,7 +165,7 @@ class MqttClient:
     async def async_subscribe(
             self,
             topic: str,
-            msg_callback: AsyncMessageCallbackType | MessageCallbackType,
+            msg_callback: MessageCallbackType,
             qos: int,
             encoding: str | None = None,
     ) -> Callable[[], None]:
@@ -167,9 +175,9 @@ class MqttClient:
         """
         if not isinstance(topic, str):
             raise HomeAssistantError("Topic needs to be a string!")
-
+        is_simple_match = not ("+" in topic or "#" in topic)
         subscription = Subscription(
-            topic, _matcher_for_topic(topic), HassJob(msg_callback), qos, encoding
+            topic,is_simple_match, _matcher_for_topic(topic), HassJob(msg_callback), qos, encoding
         )
         self.subscriptions.append(subscription)
         self._matching_subscriptions.cache_clear()
@@ -231,7 +239,7 @@ class MqttClient:
         """Disconnected callback."""
         _LOGGER.warning("Disconnected ===============================================================")
         self.connected = False
-        dispatcher_send(self.hass, MQTT_DISCONNECTED)
+        dispatcher_send(self.hass, MQTT_CONNECTION_STATE, False)
         _LOGGER.warning(
             "Disconnected from MQTT server %s:%s (%s)",
             self.conf[CONF_BROKER],
@@ -274,7 +282,7 @@ class MqttClient:
     def _matching_subscriptions(self, topic: str) -> list[Subscription]:
         subscriptions: list[Subscription] = []
         for subscription in self.subscriptions:
-            if subscription.matcher(topic):
+            if subscription.complex_matcher(topic):
                 subscriptions.append(subscription)
         return subscriptions
 

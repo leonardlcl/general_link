@@ -26,8 +26,11 @@ MDNS_SCAN_SERVICE = "_mqtt._tcp.local."
 
 PLATFORMS: list[str] = [
     "cover",
+    "fan",
     "light",
     "scene",
+    "sensor",
+    "binary_sensor",
     "switch",
     "climate",
     "media_player"
