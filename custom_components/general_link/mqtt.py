@@ -4,11 +4,21 @@ import random
 import time
 from functools import lru_cache
 from typing import Any, Iterable, Callable
+from .util import version_compare
 
-from homeassistant.components.mqtt import PublishPayloadType, ReceiveMessage, CONF_KEEPALIVE, \
+#用来对比当前版本是否比2024.5.0低的
+versionflag = version_compare("2024.5.0")
+
+if versionflag :
+    from homeassistant.components.mqtt import MQTT_DISCONNECTED, PublishPayloadType, ReceiveMessage, CONF_KEEPALIVE, \
+    MQTT_CONNECTED
+else:
+    from homeassistant.components.mqtt import PublishPayloadType, ReceiveMessage, CONF_KEEPALIVE, \
     MQTT_CONNECTION_STATE
+
 from homeassistant.components.mqtt.client import TIMEOUT_ACK, SubscribePayloadType, Subscription, \
     _matcher_for_topic
+
 from homeassistant.components.mqtt.models import  MessageCallbackType
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PORT, CONF_USERNAME, CONF_PASSWORD
@@ -57,6 +67,7 @@ class MqttClient:
             conf: ConfigType,
     ) -> None:
         self._client = client.Client(f'python-mqtt-{random.randint(0, 1000)}')
+        #self._client = client.Client(f'{random.randint(10000, 20000)}')
         self.hass = hass
         self.config_entry = config_entry
         self.conf = conf
@@ -86,7 +97,8 @@ class MqttClient:
         self._username = self.conf[CONF_USERNAME]
         self._password = self.conf[CONF_PASSWORD]
         self._client.username_pw_set(self._username, password=self._password)
-        result: int | None = None
+        #result: int | None = None
+        result = None
         try:
             result = await self.hass.async_add_executor_job(
                 self._client.connect,
@@ -127,6 +139,7 @@ class MqttClient:
     def _mqtt_on_connect(
             self, _mqttc: client, _userdata: None, _flags: dict[str, Any], result_code: int
     ) -> None:
+        #global versionflag
         """On connect callback.
 
         Resubscribe to all topics we were subscribed to and publish birth
@@ -141,7 +154,10 @@ class MqttClient:
             return
 
         self.connected = True
-        dispatcher_send(self.hass, MQTT_CONNECTION_STATE, True)
+        if versionflag:
+            dispatcher_send(self.hass, MQTT_CONNECTED)
+        else:
+            dispatcher_send(self.hass, MQTT_CONNECTION_STATE, True)
         _LOGGER.warning(
             "Connected to MQTT server %s:%s (%s)",
             self.conf[CONF_BROKER],
@@ -175,10 +191,16 @@ class MqttClient:
         """
         if not isinstance(topic, str):
             raise HomeAssistantError("Topic needs to be a string!")
-        is_simple_match = not ("+" in topic or "#" in topic)
-        subscription = Subscription(
-            topic,is_simple_match, _matcher_for_topic(topic), HassJob(msg_callback), qos, encoding
-        )
+        
+        if versionflag:
+            subscription = Subscription(
+                topic, _matcher_for_topic(topic), HassJob(msg_callback), qos, encoding
+            )
+        else:
+            is_simple_match = not ("+" in topic or "#" in topic)
+            subscription = Subscription(
+                topic,is_simple_match, _matcher_for_topic(topic), HassJob(msg_callback), qos, encoding
+            )
         self.subscriptions.append(subscription)
         self._matching_subscriptions.cache_clear()
 
@@ -239,7 +261,11 @@ class MqttClient:
         """Disconnected callback."""
         _LOGGER.warning("Disconnected ===============================================================")
         self.connected = False
-        dispatcher_send(self.hass, MQTT_CONNECTION_STATE, False)
+        if versionflag:
+            dispatcher_send(self.hass, MQTT_DISCONNECTED)
+        else:
+            dispatcher_send(self.hass, MQTT_CONNECTION_STATE, False)
+        
         _LOGGER.warning(
             "Disconnected from MQTT server %s:%s (%s)",
             self.conf[CONF_BROKER],
@@ -281,10 +307,16 @@ class MqttClient:
     @lru_cache(2048)
     def _matching_subscriptions(self, topic: str) -> list[Subscription]:
         subscriptions: list[Subscription] = []
-        for subscription in self.subscriptions:
+        if versionflag:
+          for subscription in self.subscriptions:
+            if subscription.matcher(topic):
+                subscriptions.append(subscription)
+          return subscriptions
+        else:
+          for subscription in self.subscriptions:
             if subscription.complex_matcher(topic):
                 subscriptions.append(subscription)
-        return subscriptions
+          return subscriptions
 
     @callback
     def _mqtt_handle_message(self, msg: MQTTMessage) -> None:

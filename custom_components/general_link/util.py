@@ -5,6 +5,14 @@ from homeassistant.const import CONF_NAME, CONF_PORT, CONF_USERNAME, CONF_PASSWO
 
 from .const import CONF_BROKER
 
+from homeassistant.const import __version__
+
+from packaging import version
+
+#用来对比当前版本是否比set_version低的
+def version_compare(set_version) -> bool:
+    """对比当前函数是否比2024.5.0低的"""
+    return version.parse(__version__) < version.parse(set_version)
 
 def get_connection_name(discovery_info):
     """Parse mdns data to obtain gateway name"""
