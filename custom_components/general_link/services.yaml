@@ -1,0 +1,21 @@
+# 服务 ID
+custom_push_mqtt:
+  # 服务接受的字段
+  fields:
+    # MQTT 主题
+    topic:
+      required: false
+      example: "P/0/center/q24"
+      selector:
+        text:
+          multiline: false
+          placeholder: "请输入 MQTT 主题"
+
+    # 发送的数据
+    data:
+      required: true
+      example: "-"
+      selector:
+        json:
+          multiline: false
+          placeholder: "请输入 JSON 格式的数据"

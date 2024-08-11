@@ -7,9 +7,9 @@ from typing import Any, Iterable, Callable
 from .util import version_compare
 
 #用来对比当前版本是否比2024.5.0低的
-versionflag = version_compare("2024.5.0")
+VERSION_FLAG = version_compare("2024.5.0")
 
-if versionflag :
+if VERSION_FLAG :
     from homeassistant.components.mqtt import MQTT_DISCONNECTED, PublishPayloadType, ReceiveMessage, CONF_KEEPALIVE, \
     MQTT_CONNECTED
 else:
@@ -139,7 +139,7 @@ class MqttClient:
     def _mqtt_on_connect(
             self, _mqttc: client, _userdata: None, _flags: dict[str, Any], result_code: int
     ) -> None:
-        #global versionflag
+        #global VERSION_FLAG
         """On connect callback.
 
         Resubscribe to all topics we were subscribed to and publish birth
@@ -154,7 +154,7 @@ class MqttClient:
             return
 
         self.connected = True
-        if versionflag:
+        if VERSION_FLAG:
             dispatcher_send(self.hass, MQTT_CONNECTED)
         else:
             dispatcher_send(self.hass, MQTT_CONNECTION_STATE, True)
@@ -192,7 +192,7 @@ class MqttClient:
         if not isinstance(topic, str):
             raise HomeAssistantError("Topic needs to be a string!")
         
-        if versionflag:
+        if VERSION_FLAG:
             subscription = Subscription(
                 topic, _matcher_for_topic(topic), HassJob(msg_callback), qos, encoding
             )
@@ -261,7 +261,7 @@ class MqttClient:
         """Disconnected callback."""
         _LOGGER.warning("Disconnected ===============================================================")
         self.connected = False
-        if versionflag:
+        if VERSION_FLAG:
             dispatcher_send(self.hass, MQTT_DISCONNECTED)
         else:
             dispatcher_send(self.hass, MQTT_CONNECTION_STATE, False)
@@ -307,7 +307,7 @@ class MqttClient:
     @lru_cache(2048)
     def _matching_subscriptions(self, topic: str) -> list[Subscription]:
         subscriptions: list[Subscription] = []
-        if versionflag:
+        if VERSION_FLAG:
           for subscription in self.subscriptions:
             if subscription.matcher(topic):
                 subscriptions.append(subscription)
