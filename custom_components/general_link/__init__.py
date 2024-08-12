@@ -144,7 +144,7 @@ async def monitor_connection(hass, hub, entry, reconnect_flag):
                 # 通过mDNS扫描设备
                 if CONF_PLACE in entry.data:
                     try:
-                        connection = await sender_receiver(hass, entry.data[CONF_ENVKEY], entry.data[CONF_PASSWORD], entry.data[CONF_PLACE],dest_address=entry.data[CONF_PLACE])
+                        connection = await sender_receiver(hass, entry.data[CONF_ENVKEY], entry.data[CONF_PASSWORD], entry.data[CONF_PLACE],dest_address=entry.data[CONF_ADDRESS])
                     except Exception as e:
                         _LOGGER.error("sender_receiver %s", e)
                 else:
