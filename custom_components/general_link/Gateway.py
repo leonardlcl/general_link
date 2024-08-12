@@ -115,6 +115,8 @@ class Gateway:
                     await self._add_entity("fan", device)
             elif device_type == 2:
                 """Switch"""
+                if "a15" in device:
+                    await self._add_entity("binary_sensor", device)
                 if "relays" in device and "relaysNames" in device and "relaysNum" in device:
                     await self._add_entity("switch", device)
                 else:
@@ -339,8 +341,8 @@ class Gateway:
                         f"switch{data['sn']}{relay}"), status
                 )
         # 恒温多实体触发
-        elif "devType" in data or "a109" in data or "a15" in data:
-            if data["devType"] == 9 or "a109" in data:
+        elif "devType" in data :
+            if data["devType"] == 9 :
                 async_dispatcher_send(
                     self.hass, EVENT_ENTITY_STATE_UPDATE.format(
                         data["sn"]), data
@@ -353,7 +355,7 @@ class Gateway:
                     self.hass, EVENT_ENTITY_STATE_UPDATE.format(
                         data["sn"]+"F"), data
                 )
-            elif data["devType"] == 7 or "a15" in data:
+            elif data["devType"] == 7 :
                 async_dispatcher_send(
                     self.hass, EVENT_ENTITY_STATE_UPDATE.format(
                         data["sn"]+"L"), data
@@ -367,6 +369,30 @@ class Gateway:
                     self.hass, EVENT_ENTITY_STATE_UPDATE.format(
                         data["sn"]), data
                 )
+        elif "a109" in data:
+                async_dispatcher_send(
+                    self.hass, EVENT_ENTITY_STATE_UPDATE.format(
+                        data["sn"]), data
+                )
+                async_dispatcher_send(
+                    self.hass, EVENT_ENTITY_STATE_UPDATE.format(
+                        data["sn"]+"H"), data
+                )
+                async_dispatcher_send(
+                    self.hass, EVENT_ENTITY_STATE_UPDATE.format(
+                        data["sn"]+"F"), data
+                )
+
+        elif "a15" in data:
+            async_dispatcher_send(
+                self.hass, EVENT_ENTITY_STATE_UPDATE.format(
+                    data["sn"]+"L"), data
+            )
+            async_dispatcher_send(
+                    self.hass, EVENT_ENTITY_STATE_UPDATE.format(
+                        data["sn"]+"M"), data
+            )
+
         else:
             async_dispatcher_send(
                 self.hass, EVENT_ENTITY_STATE_UPDATE.format(data["sn"]), data
