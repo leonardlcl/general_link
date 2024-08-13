@@ -235,7 +235,7 @@ class Gateway:
                 }
                 await self._async_mqtt_publish("P/0/center/q5", data, 3)
 
-            _LOGGER.debug(f"event/3 data:{payload}")
+            _LOGGER.warning(f"event/3 data:{payload}")
 
             if flag:
                 await self.sync_group_status(False)
@@ -534,9 +534,9 @@ class Gateway:
             _LOGGER.warning("start init data")
             self.init_state = True
             try:
-                if is_init:
+                #if is_init:
 
-                    await asyncio.gather(
+                await asyncio.gather(
                         *(
                             self.hass.data[MQTT_CLIENT_INSTANCE].async_subscribe(
                                 topic,

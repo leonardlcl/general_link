@@ -38,7 +38,7 @@ async def _decrypt_message(hass, encrypted_message):
 # 异步收发UDP广播消息
 
 
-async def _async_send_receive_udp_broadcast(hass: HomeAssistant, data: dict, port: int, dest_address=None, dest_port: int = 9451, timeout: float = 0.3) -> dict:
+async def _async_send_receive_udp_broadcast(hass: HomeAssistant, data: dict, port: int, dest_address=None, dest_port: int = 9451, timeout: float = 0.25) -> dict:
     # loop = asyncio.get_running_loop()
     # global data_dict
 
@@ -105,10 +105,10 @@ async def sender_receiver(hass: HomeAssistant, userid: str, password: str, place
     try:
         # 重复3次发送udp广播接收数据
         for _ in range(3):
-            await asyncio.sleep(1)
             data_dict = await _async_send_receive_udp_broadcast(hass, data, port, dest_address=dest_address)
             if data_dict is not None:
                 break
+            await asyncio.sleep(0.3)
 
     except Exception as e:
         _LOGGER.error("Error in sender_receiver: %s", e)
@@ -123,9 +123,10 @@ async def sender_receiver(hass: HomeAssistant, userid: str, password: str, place
                     network_prefix = ip_info["network_prefix"]
                     ip_net = IPNetwork(f"{local_ip}/{network_prefix}")
                     for ip in ip_net.iter_hosts():
+                        await asyncio.sleep(0.3)
                         data_dict = await _async_send_receive_udp_broadcast(hass, data, port, dest_address=str(ip))
                         if data_dict is not None:
-                            dest_address = ip
+                            dest_address = str(ip)
                             break
                     
             

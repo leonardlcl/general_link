@@ -6,8 +6,9 @@ from homeassistant.const import __version__
 from homeassistant.components import network
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.const import CONF_NAME, CONF_PASSWORD,CONF_ADDRESS
+from homeassistant.const import CONF_NAME, CONF_PASSWORD, CONF_ADDRESS
 from homeassistant.helpers import config_validation as cv, entity_platform, service
+from ipaddress import ip_network
 from .listener import sender_receiver
 from .Gateway import Gateway
 from .const import PLATFORMS, MQTT_CLIENT_INSTANCE, CONF_LIGHT_DEVICE_TYPE, DOMAIN, FLAG_IS_INITIALIZED, \
@@ -64,7 +65,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     reconnect_flag.clear()
-    #_LOGGER.debug(f"entry.data ,{entry.data}")
+    
+    _LOGGER.debug(f"entry.data ,{entry.data}")
     # hub.init_state = True
 
     # reconnect_flag = asyncio.Event()
@@ -73,14 +75,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     entry.async_on_unload(entry.add_update_listener(
         _async_config_entry_updated))
+    
 
-    # adapters = await network.async_get_adapters(hass)
+    """
+    adapters = await network.async_get_adapters(hass)
 
-    # for adapter in adapters:
-    #  for ip_info in adapter["ipv4"]:
-   #     local_ip = ip_info["address"]
-   #     network_prefix = ip_info["network_prefix"]
-   #     ip_net = ip_network(f"{local_ip}/{network_prefix}", False)
+    for adapter in adapters:
+        if adapter["enabled"] and adapter["name"] == "eth0":
+
+            for ip_info in adapter["ipv4"]:
+                local_ip = ip_info["address"]
+                network_prefix = ip_info["network_prefix"]
+                ip_net = ip_network(f"{local_ip}/{network_prefix}", False)
+                _LOGGER.warning(f"local_ip ,{local_ip} ip_net, {ip_net}")
+    _LOGGER.warning(f"adapters ,{adapters}")
+    """
+
 
     _LOGGER.warning(f"homeassistant.version ,{__version__}")
 
@@ -90,7 +100,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         # if topic == "P/0/center/q24":
         #  data = call.data
-       # else:
+        # else:
         data = call.data.get("data")
 
         await hub.async_mqtt_publish(topic, data, 2)
@@ -134,9 +144,11 @@ async def monitor_connection(hass, hub, entry, reconnect_flag):
 
             mqtt_connected = hub.hass.data[MQTT_CLIENT_INSTANCE].connected
             current_time = int(time.time())
+            
 
             # 如果MQTT未连接或网关初始化状态为False，则尝试重新连接
             if not mqtt_connected or not hub.init_state:
+                hub.reconnect_flag = True
 
                 connection = None
 
@@ -144,7 +156,7 @@ async def monitor_connection(hass, hub, entry, reconnect_flag):
                 # 通过mDNS扫描设备
                 if CONF_PLACE in entry.data:
                     try:
-                        connection = await sender_receiver(hass, entry.data[CONF_ENVKEY], entry.data[CONF_PASSWORD], entry.data[CONF_PLACE],dest_address=entry.data[CONF_ADDRESS])
+                        connection = await sender_receiver(hass, entry.data[CONF_ENVKEY], entry.data[CONF_PASSWORD], entry.data[CONF_PLACE], dest_address=entry.data[CONF_ADDRESS])
                     except Exception as e:
                         _LOGGER.error("sender_receiver %s", e)
                 else:
@@ -153,7 +165,7 @@ async def monitor_connection(hass, hub, entry, reconnect_flag):
                 _LOGGER.debug("mqtt 连接不上了，需要重新扫描一下，得到连接 %s", connection)
                 _LOGGER.warning("mqtt 连接不上了，重新扫描一下")
 
-                hub.reconnect_flag = True
+                
 
                 # 如果扫描到设备，更新配置项数据
                 if connection is not None:
@@ -173,7 +185,7 @@ async def monitor_connection(hass, hub, entry, reconnect_flag):
 
                         _LOGGER.error("Error in update_entry: %s", e)
                 # 如果没扫描到设备，但是MQTT已连接，则尝试重新初始化网关
-                elif mqtt_connected and not hub.init_state:
+                elif connection is None and mqtt_connected and not hub.init_state:
                     _LOGGER.warning("没扫描到设备，但是MQTT已连接")
                     await _async_config_entry_updated(hass, entry)
 
