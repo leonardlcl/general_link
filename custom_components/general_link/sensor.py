@@ -26,8 +26,8 @@ async def async_setup_entry(
         try:
             if "a14" in config_payload:
                 async_add_entities([LightSensor(hass, config_payload, config_entry)])
-        except Exception as e:
-            _LOGGER.error(f"发现传感器时出错: {e}")
+        except Exception :
+            raise
 
     unsub = async_dispatcher_connect(
         hass, EVENT_ENTITY_REGISTER.format(COMPONENT), async_discover

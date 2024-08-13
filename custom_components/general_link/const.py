@@ -12,6 +12,12 @@ FLAG_IS_INITIALIZED = "flag_is_initialized"
 
 CACHE_ENTITY_STATE_UPDATE_KEY_DICT = "general_link_entity_state_update_dict"
 
+CONF_ENVKEY = "envkey"
+
+MANUAL_FLAG= "manual_flag"
+
+CONF_PLACE= "place"
+
 EVENT_ENTITY_STATE_UPDATE = "general_link_entity_state_update_{}"
 
 EVENT_ENTITY_REGISTER = "general_link_entity_register_{}"
@@ -25,6 +31,7 @@ DEVICE_COUNT_MAX = 100
 MDNS_SCAN_SERVICE = "_mqtt._tcp.local."
 
 PLATFORMS: list[str] = [
+    "button",
     "cover",
     "fan",
     "light",

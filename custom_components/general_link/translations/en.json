@@ -1,24 +1,44 @@
 {
     "config": {
         "abort": {
-            "already_configured": "Service has been configured",
-            "single_instance_allowed": "The integration has already been configured and can only be configured once. To reconfigure, delete the old integration first.",
-            "select_error": "Please select again",
-            "not_found_device": "Device not scanned"
+            "already_configured": "The service has already been configured.",
+            "single_instance_allowed": "This integration is already configured and can only be configured once. To reconfigure, please remove the old integration first.",
+            "select_error": "Please select again.",
+            "not_found_device": "No device found."
         },
         "error": {
-            "cannot_connect": "Unable to connect to device."
+            "cannot_connect": "Unable to connect to the device."
         },
         "step": {
             "option": {
                 "data": {
-                    "light_device_type": "Smart Lighting Control Mode"
+                    "light_device_type": "Smart Light Control Method",
+                    "scanmode": "Scan Mode"
                 },
-                "description": "Please select the gateway addition method and the intelligent lighting control method."
+                "description": "Please select the gateway addition method and the smart light control method."
             },
             "scan": {
                 "data": {},
-                "description": "Please select the scanned gateway to connect."
+                "description": "Please select the gateway from the scan results to connect."
+            },
+            "token": {
+                "data": {},
+                "description": "Please select the venue ID."
+            },
+            "envkey": {
+                "data": {
+                    "name": "Username",
+                    "password": "Password"
+                },
+                "description": "Please enter the APP username and password. (Manual input, just submit.)"
+            },
+            "manual": {
+                "data": {
+                    "place": "Venue Identifier",
+                    "envkey": "Venue Key",
+                    "password": "Venue Password"
+                },
+                "description": "Please enter the venue identifier, venue key, and venue password for the gateway."
             }
         }
     }

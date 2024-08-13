@@ -12,13 +12,36 @@
         "step": {
             "option": {
                 "data": {
-                    "light_device_type": "智能灯光控制方式"
+                    "light_device_type": "智能灯光控制方式",
+                    "scanmode":"扫描模式"
                 },
                 "description": "请选择网关添加方式以及智能灯光控制方式。"
             },
             "scan": {
                 "data": {},
                 "description": "请选择扫描到的网关进行连接。"
+            },
+            "token": {
+                "data": {},
+                "description": "请选择场所ID。"
+            },
+            "envkey": {
+                "data": {
+                    "url": "环境地址",
+                    "manufacturer": "厂商标识",
+                    "name": "用户名",
+                    "password": "密码"
+                },
+                "description": "请选择填入APP用户名密码。(手动输入场所信息，直接提交)"
+            },
+            "manual": {
+                "data": {
+                    "place": "场所标识",
+                    "envkey": "场所凭证",
+                    "password": "场所密码",
+                    "address": "网关地址"
+                },
+                "description": "请填入网关的场所标识和场所凭证和场所密码,使用单播填入网关地址。"
             }
         }
     }
