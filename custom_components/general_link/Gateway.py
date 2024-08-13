@@ -28,7 +28,7 @@ class Gateway:
         self.hass = hass
         self._entry = entry
         self._last_init_time = None
-        # _LOGGER.warning("获取下entry %s", entry.data)
+        
         self._id = entry.data[CONF_NAME]
 
         self.light_group_map = {}
@@ -235,7 +235,7 @@ class Gateway:
                 }
                 await self._async_mqtt_publish("P/0/center/q5", data, 3)
 
-            _LOGGER.warning(f"event/3 data:{payload}")
+            _LOGGER.debug(f"event/3 data:{payload}")
 
             if flag:
                 await self.sync_group_status(False)
