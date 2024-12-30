@@ -3,13 +3,11 @@ import logging
 import random
 import time
 from functools import lru_cache
-from typing import Any, Iterable, Callable
+from typing import Iterable, Any, Union
+import datetime as dt
 
-from homeassistant.components.mqtt import MQTT_DISCONNECTED, PublishPayloadType, ReceiveMessage, CONF_KEEPALIVE, \
-    MQTT_CONNECTED
-from homeassistant.components.mqtt.client import _raise_on_error, TIMEOUT_ACK, SubscribePayloadType, Subscription, \
-    _matcher_for_topic
-from homeassistant.components.mqtt.models import AsyncMessageCallbackType, MessageCallbackType
+import attr
+from collections.abc import Callable, Coroutine
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PORT, CONF_USERNAME, CONF_PASSWORD
 from homeassistant.core import HomeAssistant, callback, HassJob
@@ -26,6 +24,12 @@ from .const import CONF_BROKER
 
 _LOGGER = logging.getLogger(__name__)
 
+TIMEOUT_ACK = 10
+CONF_KEEPALIVE = "keepalive"
+
+PublishPayloadType = Union[str, bytes, int, float, None]
+ReceivePayloadType = Union[str, bytes]
+
 
 def _raise_on_errors(result_codes: Iterable[int | None]) -> None:
     """Raise error if error result."""
@@ -38,6 +42,63 @@ def _raise_on_errors(result_codes: Iterable[int | None]) -> None:
         if result_code != 0
     ]:
         raise HomeAssistantError(f"Error talking to MQTT: {', '.join(messages)}")
+
+
+def _raise_on_error(result_code: int | None) -> None:
+    """Raise error if error result."""
+    _raise_on_errors((result_code,))
+
+
+def _matcher_for_topic(subscription: str) -> Any:
+    # pylint: disable-next=import-outside-toplevel
+    from paho.mqtt.matcher import MQTTMatcher
+
+    matcher = MQTTMatcher()
+    matcher[subscription] = True
+
+    return lambda topic: next(matcher.iter_match(topic), False)
+
+
+SubscribePayloadType = Union[str, bytes]  # Only bytes if encoding is None
+
+
+@attr.s(slots=True, frozen=True)
+class ReceiveMessage:
+    """MQTT Message."""
+
+    topic: str = attr.ib()
+    payload: ReceivePayloadType = attr.ib()
+    qos: int = attr.ib()
+    retain: bool = attr.ib()
+    subscribed_topic: str = attr.ib(default=None)
+    timestamp: dt.datetime = attr.ib(default=None)
+
+
+@attr.s(slots=True, frozen=True)
+class Subscription:
+    """Class to hold data about an active subscription."""
+
+    topic: str = attr.ib()
+    matcher: Any = attr.ib()
+    job: HassJob[[ReceiveMessage], Coroutine[Any, Any, None] | None] = attr.ib()
+    qos: int = attr.ib(default=0)
+    encoding: str | None = attr.ib(default="utf-8")
+
+
+AsyncMessageCallbackType = Callable[[ReceiveMessage], Coroutine[Any, Any, None]]
+MessageCallbackType = Callable[[ReceiveMessage], None]
+
+
+@attr.s(slots=True, frozen=True)
+class ReceiveMessage:
+    """MQTT Message."""
+
+    topic: str = attr.ib()
+    payload: ReceivePayloadType = attr.ib()
+    qos: int = attr.ib()
+    retain: bool = attr.ib()
+    subscribed_topic: str = attr.ib(default=None)
+    timestamp: dt.datetime = attr.ib(default=None)
 
 
 class MqttClient:
@@ -133,7 +194,7 @@ class MqttClient:
             return
 
         self.connected = True
-        dispatcher_send(self.hass, MQTT_CONNECTED)
+        dispatcher_send(self.hass, "mqtt_connected")
         _LOGGER.warning(
             "Connected to MQTT server %s:%s (%s)",
             self.conf[CONF_BROKER],
@@ -231,7 +292,7 @@ class MqttClient:
         """Disconnected callback."""
         _LOGGER.warning("Disconnected ===============================================================")
         self.connected = False
-        dispatcher_send(self.hass, MQTT_DISCONNECTED)
+        dispatcher_send(self.hass, "mqtt_disconnected")
         _LOGGER.warning(
             "Disconnected from MQTT server %s:%s (%s)",
             self.conf[CONF_BROKER],
