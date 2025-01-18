@@ -102,7 +102,7 @@ class CustomClimate(ClimateEntity, ABC):
         self.sn = config["sn"]
 
         self._attr_name = config["name"]
-        
+
         self._attr_device_class = COMPONENT
 
         self.hass = hass
@@ -176,7 +176,7 @@ class CustomClimate(ClimateEntity, ABC):
         if "a19" in data:
             curr_temp = float(data["a19"])
             self._attr_current_temperature = curr_temp
-        
+
         if "a20" in data:
             curr_hum = float(data["a20"])*100
             self._attr_current_humidity = curr_hum
@@ -250,6 +250,9 @@ class CustomClimate(ClimateEntity, ABC):
         """Execute MQTT commands"""
         message = {
             "seq": 1,
+            "s": {
+                "t": 101
+            },
             "data": {
                 "sn": self.sn,
                 "i": i,
@@ -299,9 +302,9 @@ class CustomClimateH(ClimateEntity, ABC):
         self._attr_unique_id = config["unique_id"]+"H"
 
         self._attr_entity_id = config["unique_id"]+"H"
-        
+
         self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
-            
+
         self.sn = config["sn"]
 
         self._attr_name = config["name"]+"_地暖"
@@ -369,7 +372,7 @@ class CustomClimateH(ClimateEntity, ABC):
         if "a19" in data:
             curr_temp = float(data["a19"])
             self._attr_current_temperature = curr_temp
-        
+
         if "a20" in data:
             curr_hum = float(data["a20"])*100
             self._attr_current_humidity = curr_hum
@@ -411,6 +414,9 @@ class CustomClimateH(ClimateEntity, ABC):
             m = "a114"
         message = {
             "seq": 1,
+            "s": {
+                "t": 101
+            },
             "data": {
                 "sn": self.sn,
                 "i": i,
@@ -471,7 +477,7 @@ class CustomClimateW(CustomClimate):
         if "a19" in data:
             curr_temp = float(data["a19"])
             self._attr_current_temperature = curr_temp
-        
+
         if "a20" in data:
             curr_hum = float(data["a20"])*100
             self._attr_current_humidity = curr_hum
@@ -558,6 +564,9 @@ class CustomClimateW(CustomClimate):
          """Execute MQTT commands"""
          message = {
              "seq": 1,
+             "s": {
+                 "t": 101
+             },
              "data": {
                  "sn": self.sn,
                  "i": i,
@@ -565,18 +574,20 @@ class CustomClimateW(CustomClimate):
              }
          }
          if i == 32:
-           m = "a109"
-           message = {
-             "seq": 1,
-             "data": {
-                 "sn": self.sn,
-                 "i": i,
-                 "p":
-                     {
+             m = "a109"
+             message = {
+                 "seq": 1,
+                 "s": {
+                    "t": 101
+                 },
+                 "data": {
+                     "sn": self.sn,
+                     "i": i,
+                     "p": {
                          m: v
                      }
+                 }
              }
-           }
 
          await self.hass.data[MQTT_CLIENT_INSTANCE].async_publish(
              "P/0/center/q74",

@@ -286,6 +286,9 @@ class CustomMediaPlayer(MediaPlayerEntity, ABC):
 
         message = {
             "seq": 1,
+            "s": {
+                "t": 101
+            },
             "data": data
         }
 

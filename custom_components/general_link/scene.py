@@ -81,6 +81,9 @@ class CustomScene(Scene):
     async def exec_command(self):
         message = {
             "seq": 1,
+            "s": {
+                "t": 101
+            },
             "data": {
                 "id": self.id
             }

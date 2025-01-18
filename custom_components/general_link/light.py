@@ -240,6 +240,9 @@ class CustomLight(LightEntity):
     async def exec_command(self, on=None, level=None, kelvin=None, rgb=None):
         message = {
             "seq": 1,
+            "s": {
+                "t": 101
+            },
             "data": {}
         }
 

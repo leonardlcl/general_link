@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import json
 import logging
+from typing import Any, Optional
 from abc import ABC
 from homeassistant.components.fan import FanEntity,FanEntityFeature
 from homeassistant.config_entries import ConfigEntry
@@ -11,7 +12,6 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util.percentage import ranged_value_to_percentage, percentage_to_ranged_value
-from homeassistant.util.scaling import int_states_in_range
 
 from .const import DOMAIN, MQTT_CLIENT_INSTANCE, \
     EVENT_ENTITY_REGISTER, EVENT_ENTITY_STATE_UPDATE, CACHE_ENTITY_STATE_UPDATE_KEY_DICT, MANUFACTURER
@@ -208,12 +208,14 @@ class CustomFan(FanEntity, ABC):
             m = "a116"
         message = {
             "seq": 1,
+            "s": {
+                "t": 101
+            },
             "data": {
                 "sn": self.sn,
                 "i": i,
-                "p":
-                    {
-                    m : p
+                "p": {
+                    m: p
                 }
             }
         }

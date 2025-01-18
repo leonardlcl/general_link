@@ -142,6 +142,9 @@ class CustomSwitch(SwitchEntity, ABC):
     async def exec_command(self, on=None):
         message = {
             "seq": 1,
+            "s": {
+                "t": 101
+            },
             "data": {}
         }
         message["data"]["relay"] = self.relay
