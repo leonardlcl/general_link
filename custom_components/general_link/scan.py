@@ -25,9 +25,10 @@ def on_service_state_change(
         discovery_info = zeroconf.get_service_info(service_type, name)
         # _LOGGER.warning("state_change : %s ; data : %s", state_change, discovery_info)
         if discovery_info is not None:
-            discovery_info = info_from_service(discovery_info)
+            # discovery_info = info_from_service(discovery_info)
             service_type = service_type[:-1]
             name = name.replace(f".{service_type}.", "")
+            _LOGGER.warning("22222222 discovery_info : %s", discovery_info)
             connection = format_connection(discovery_info)
             connection_dict[name] = connection
     elif state_change is ServiceStateChange.Removed:

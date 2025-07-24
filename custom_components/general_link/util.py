@@ -1,9 +1,13 @@
 """Utility functions for the MHTZN integration."""
+import logging
 import math
+import socket
 
 from homeassistant.const import CONF_NAME, CONF_PORT, CONF_USERNAME, CONF_PASSWORD, CONF_PROTOCOL
 
 from .const import CONF_BROKER
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def get_connection_name(discovery_info):
@@ -70,12 +74,28 @@ def format_connection(discovery_info) -> dict:
     """Parse and format mdns data"""
 
     name = get_connection_name(discovery_info)
-    host = discovery_info.host
+    host = None
+    if hasattr(discovery_info, 'host'):
+        host = discovery_info.host
+    elif hasattr(discovery_info, 'server'):
+        host = discovery_info.server
+        ipv4_list = [
+            socket.inet_ntoa(addr)
+            for addr in discovery_info.addresses
+            if len(addr) == 4
+        ]
+        if ipv4_list:
+            host = ipv4_list[0]
     port = discovery_info.port
     username = None
     password = None
 
     for key, value in discovery_info.properties.items():
+        if isinstance(value, bytes):
+            value = value.decode('utf-8')
+        if isinstance(key, bytes):
+            key = key.decode('utf-8')
+
         if key == 'username':
             username = value
         elif key == 'password':
@@ -92,5 +112,7 @@ def format_connection(discovery_info) -> dict:
         CONF_PROTOCOL: "3.1.1",
         "keepalive": 60
     }
+
+    _LOGGER.warning("Formatted connection: %s", connection)
 
     return connection

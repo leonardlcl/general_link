@@ -42,7 +42,7 @@ class MdnsScanner:
         discovery_info = zeroconf.get_service_info(service_type, name)
 
         if discovery_info is not None:
-            discovery_info = info_from_service(discovery_info)
+            # discovery_info = info_from_service(discovery_info)
             service_type = service_type[:-1]
             name = name.replace(f".{service_type}.", "")
             connection = format_connection(discovery_info)
@@ -56,20 +56,20 @@ class MdnsScanner:
         zeroconf_instance = await zeroconf.async_get_instance(self._hass)
 
         browser = ServiceBrowser(zeroconf_instance, MDNS_SCAN_SERVICE, self)
-         
+
         time1=1
-        
+
         while True:
             if time1 > timeout:
                break
-            
+
             await asyncio.sleep(1)
-            
+
             time1 = time1 + 1
 
         if browser is not None:
               browser.cancel()
-           
+
         return self.services
 
 
@@ -97,7 +97,7 @@ class MdnsScanner:
                     browser.cancel()
 
             # 使用日志记录服务状态，而不是直接返回值
-            # _LOGGER.warning("self.services  %s", self.services)      
+            # _LOGGER.warning("self.services  %s", self.services)
             if name in self.services:
                 return self.services[name]
             else:
@@ -115,4 +115,4 @@ class MdnsScanner:
                 if elapsed_time > 10:  # 使用变量而不是魔法数字
                     break
 
-       
+
