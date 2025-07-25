@@ -109,7 +109,12 @@ class MqttClient:
             config_entry: ConfigEntry,
             conf: ConfigType,
     ) -> None:
-        self._client = client.Client(f'python-mqtt-{random.randint(0, 1000)}')
+
+        try:
+            self._client = client.Client(client_id=f'python-mqtt-{random.randint(0, 1000)}')
+        except:
+            self._client = client.Client(client_id=f'python-mqtt-{random.randint(0, 1000)}', callback_api_version=client.CallbackAPIVersion.VERSION1)
+
         self.hass = hass
         self.config_entry = config_entry
         self.conf = conf
